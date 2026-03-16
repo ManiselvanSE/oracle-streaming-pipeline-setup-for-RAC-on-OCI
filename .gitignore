@@ -9,7 +9,7 @@ logs/
 # Confluent / Kafka data (if run locally)
 /var/lib/kafka-data/
 /tmp/kraft-combined-logs/
-oracle-xstream-cdc-poc/data/
+data/
 
 # IDE
 .idea/

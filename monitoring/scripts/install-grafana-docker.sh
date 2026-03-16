@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # Install Grafana via Docker - Oracle XStream CDC POC
-# Run on VM (e.g. mani-xstrm-vm). Requires Docker.
+# Run on VM (e.g. connector-vm). Requires Docker.
 # Usage: ./monitoring/scripts/install-grafana-docker.sh
 # =============================================================================
 

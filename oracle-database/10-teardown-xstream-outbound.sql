@@ -1,7 +1,7 @@
 -- =============================================================================
 -- Teardown: Drop XStream Outbound Server (capture, apply, queue)
 -- Run as: c##xstrmadmin or SYSDBA - connect to CDB
--- sqlplus c##xstrmadmin/'ConFL#_uent12'@//host:1521/DB0312... as sysdba
+-- sqlplus c##xstrmadmin/<password>@//<host>:1521/<db-service> as sysdba
 -- =============================================================================
 
 SET SERVEROUTPUT ON

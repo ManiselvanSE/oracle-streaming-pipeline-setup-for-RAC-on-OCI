@@ -16,13 +16,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${1:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 SQL_DIR="$PROJECT_DIR/oracle-database"
 
-DB_HOST="${DB_HOST:-10.0.0.29}"
+DB_HOST="${DB_HOST:-your-rac-scan-host}"
 DB_PORT="${DB_PORT:-1521}"
-DB_SERVICE="${DB_SERVICE:-DB0312_r8n_phx.sub01061249390.xstrmconnectdb2.oraclevcn.com}"
-PDB_SERVICE="${PDB_SERVICE:-XSTRPDB.sub01061249390.xstrmconnectdb2.oraclevcn.com}"
+DB_SERVICE="${DB_SERVICE:-your-db-service.oraclevcn.com}"
+PDB_SERVICE="${PDB_SERVICE:-XSTRPDB.your-vcn.oraclevcn.com}"
 CONN_STR="//${DB_HOST}:${DB_PORT}/${DB_SERVICE}"
 PDB_CONN="//${DB_HOST}:${DB_PORT}/${PDB_SERVICE}"
-PWD_CFLT='ConFL#_uent12'
+PWD_CFLT="${PWD_CFLT:-your-ordermgmt-password}"
 # c##xstrmadmin password (often same as c##cfltuser)
 PWD_XSTRM="${DB_XSTRM_PWD:-$DB_SYS_PWD}"
 

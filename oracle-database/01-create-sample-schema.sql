@@ -15,7 +15,8 @@ END;
 /
 
 -- Create ordermgmt user (local user in PDB - no C## prefix)
-CREATE USER ordermgmt IDENTIFIED BY "ConFL#_uent12"
+-- Replace YourP@ssw0rd123 with your password before running
+CREATE USER ordermgmt IDENTIFIED BY "YourP@ssw0rd123"
   DEFAULT TABLESPACE ordermgmt_tbs
   QUOTA UNLIMITED ON ordermgmt_tbs;
 

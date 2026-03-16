@@ -4,7 +4,7 @@
 # Run this on the xstrm-con VM after SSH login
 # =============================================================================
 
-RAC_SCAN="racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com"
+RAC_SCAN="${RAC_SCAN:-racdb-scan.your-vcn.oraclevcn.com}"
 RAC_PORT=1521
 
 echo "=== Oracle RAC Connectivity Check ==="

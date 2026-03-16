@@ -27,7 +27,7 @@ A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent O
 │                                                                          │
 │  ┌──────────────────────┐         ┌─────────────────────────────────┐  │
 │  │  Connector VM         │         │  Oracle RAC                     │  │
-│  │  (mani-xstrm-vm)      │  ────►  │  SCAN: racdb-scan...             │  │
+│  │  (connector-vm)      │  ────►  │  SCAN: racdb-scan...             │  │
 │  │  Port: 1521           │  1521   │  XStream Out configured          │  │
 │  │                       │         │                                  │  │
 │  │  • Confluent Platform │         │  • XStream Out outbound server   │  │
@@ -486,7 +486,7 @@ oracle-xstream-cdc-poc/
 
 ## Prerequisites
 
-- **SSH:** Private key for VM access (e.g. `ssh-key-2026-03-12.key`)
+- **SSH:** Private key for VM access (e.g. `your-ssh-key.pem`)
 - **Network:** Security List allows TCP 1521 from VM subnet to RAC
 - **Oracle:** 19c/21c, ARCHIVELOG, XStream enabled
 - **VM:** Oracle Linux 9, ~11 GB RAM recommended

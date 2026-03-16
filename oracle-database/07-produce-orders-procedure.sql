@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Oracle XStream CDC - Step 7: Data generator procedure (from ora0600/confluent-new-cdc-connector)
--- Run as: sqlplus ordermgmt/"ConFL#_uent12"@//host:1521/XSTRPDB...
+-- Run as: sqlplus ordermgmt/<password>@//<host>:1521/XSTRPDB...
 -- =============================================================================
 
 -- Generate orders every 5 seconds (for testing CDC)

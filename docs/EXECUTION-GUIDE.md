@@ -73,7 +73,7 @@ DB_SYS_PWD='<sys_pwd>' DB_XSTRM_PWD='<xstrmadmin_pwd>' ./admin-commands/setup-fr
 
 ```bash
 # From VM or host with SQL*Plus
-sqlplus sys/'<SYS_password>'@//racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com:1521/DB0312_r8n_phx.sub01061249390.xstrmconnectdb2.oraclevcn.com as sysdba
+sqlplus sys/'<SYS_password>'@//racdb-scan.<your-vcn>.oraclevcn.com:1521/<db-service>.oraclevcn.com as sysdba
 ```
 
 **Why:** Establish session as SYSDBA to run admin scripts.
@@ -111,7 +111,7 @@ Table created.
 
 **Check:**
 - No `ORA-65096` (would mean running in CDB root instead of PDB)
-- No `ORA-28003` (password policy – use `ConFL#_uent12` or similar)
+- No `ORA-28003` (password policy – use `<password>` or similar)
 - `User created` and `Table created` for all objects
 
 **Common errors:**
@@ -199,7 +199,7 @@ Grant succeeded.
 
 **Connect as ordermgmt:**
 ```bash
-sqlplus ordermgmt/"ConFL#_uent12"@//racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com:1521/XSTRPDB.sub01061249390.xstrmconnectdb2.oraclevcn.com
+sqlplus ordermgmt/"<password>"@//racdb-scan.<your-vcn>.oraclevcn.com:1521/XSTRPDB.<your-vcn>.oraclevcn.com
 ```
 
 ```sql
@@ -223,7 +223,7 @@ Commit complete.
 
 **Connect as c##xstrmadmin:**
 ```bash
-sqlplus c##xstrmadmin/'ConFL#_uent12'@//racdb-scan.../DB0312... as sysdba
+sqlplus c##xstrmadmin/'<password>'@//racdb-scan.../DB0312... as sysdba
 ```
 
 ```sql
@@ -278,7 +278,7 @@ PL/SQL procedure successfully completed.
 export LD_LIBRARY_PATH=/opt/oracle/instantclient/instantclient_19_30:$LD_LIBRARY_PATH
 export PATH=/opt/oracle/instantclient/instantclient_19_30:$PATH
 
-sqlplus ordermgmt/"ConFL#_uent12"@//racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com:1521/XSTRPDB.sub01061249390.xstrmconnectdb2.oraclevcn.com @/home/opc/oracle-xstream-cdc-poc/oracle-database/05-load-sample-data.sql
+sqlplus ordermgmt/"<password>"@//racdb-scan.<your-vcn>.oraclevcn.com:1521/XSTRPDB.<your-vcn>.oraclevcn.com @/home/opc/oracle-xstream-cdc-poc/oracle-database/05-load-sample-data.sql
 ```
 
 Then restart the connector and wait 2–3 minutes:
@@ -311,7 +311,7 @@ NETWORK_NAME
 --------------------------------------------------------------------------------
          1          3
 SYS.Q$_XOUT_5
-SYS$SYS.Q$_XOUT_5.DB0312.SUB01061249390.XSTRMCONNECTDB2.ORACLEVCN.COM
+SYS$SYS.Q$_XOUT_5.DB0312.<YOUR_SERVICE>.ORACLEVCN.COM
 ```
 
 **Check:** Copy `NETWORK_NAME` into `oracle-xstream-rac.json` as `database.service.name`.
@@ -349,7 +349,7 @@ Apply:    XOUT ENABLED
 
 # Part 2: VM Setup (Connector Host)
 
-**Where:** mani-xstrm-vm (137.131.53.98)  
+**Where:** connector-vm (<vm-public-ip>)  
 **User:** opc
 
 ---
@@ -358,7 +358,7 @@ Apply:    XOUT ENABLED
 
 ```bash
 cd /Users/maniselvank/Mani/customer/airtel
-scp -i /Users/maniselvank/Desktop/Mani/ssh-key-2026-03-12.key -r oracle-xstream-cdc-poc opc@137.131.53.98:/home/opc/
+scp -i /path/to/your-ssh-key.pem -r oracle-xstream-cdc-poc opc@<vm-public-ip>:/home/opc/
 ```
 
 **Why:** Bring scripts, configs, and connector JSON to the VM.
@@ -376,7 +376,7 @@ oracle-xstream-rac.json    100%  ...
 ## 2.2 Run setup-vm.sh
 
 ```bash
-ssh -i /path/to/ssh-key-2026-03-12.key opc@137.131.53.98
+ssh -i /path/to/ssh-key-2026-03-12.key opc@<vm-public-ip>
 
 chmod +x /home/opc/oracle-xstream-cdc-poc/admin-commands/setup-vm.sh
 sudo /home/opc/oracle-xstream-cdc-poc/admin-commands/setup-vm.sh
@@ -651,7 +651,7 @@ Then consume again; you should see a new event for the insert.
 
 # Part 5: Confluent Platform – Start, Status, Stop
 
-**Where:** VM (mani-xstrm-vm)  
+**Where:** VM (connector-vm)  
 **Prerequisite:** `export LD_LIBRARY_PATH=/opt/oracle/instantclient/instantclient_19_30:$LD_LIBRARY_PATH`
 
 ---

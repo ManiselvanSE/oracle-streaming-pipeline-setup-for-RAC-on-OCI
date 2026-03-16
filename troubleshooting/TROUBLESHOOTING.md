@@ -181,7 +181,7 @@ BEGIN DBMS_CAPTURE_ADM.START_CAPTURE(capture_name => 'CONFLUENT_XOUT1'); END;
 **SCAN hostname not resolving**
 - Add to VM `/etc/hosts`:
   ```
-  10.0.0.29 racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com
+  <rac-scan-ip> racdb-scan.<your-vcn>.oraclevcn.com
   ```
 
 ---

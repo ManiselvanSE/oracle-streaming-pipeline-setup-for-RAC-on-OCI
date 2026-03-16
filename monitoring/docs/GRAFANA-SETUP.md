@@ -14,7 +14,7 @@ This document describes how to install and run Grafana on the Oracle XStream CDC
 ## Prerequisites
 
 - Docker installed on the VM (see [admin-commands/install-docker.sh](../../admin-commands/install-docker.sh))
-- VM accessible (e.g. `137.131.53.98` for mani-xstrm-vm)
+- VM accessible (e.g. `<vm-public-ip>` for connector-vm)
 
 ## Installation
 
@@ -46,8 +46,8 @@ docker run -d \
 | Environment | URL |
 |-------------|-----|
 | **From VM** | http://localhost:3000 |
-| **From local (SSH tunnel)** | http://localhost:3000 after: `ssh -i key.pem -L 3000:localhost:3000 opc@137.131.53.98` |
-| **Direct (if firewall allows)** | http://137.131.53.98:3000 |
+| **From local (SSH tunnel)** | http://localhost:3000 after: `ssh -i key.pem -L 3000:localhost:3000 opc@<vm-public-ip>` |
+| **Direct (if firewall allows)** | http://<vm-public-ip>:3000 |
 
 **First login:** admin / admin — you will be prompted to change the password.
 

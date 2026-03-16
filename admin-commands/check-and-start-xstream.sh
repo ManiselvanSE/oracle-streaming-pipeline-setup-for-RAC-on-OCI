@@ -11,9 +11,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${1:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 SQL_DIR="$PROJECT_DIR/oracle-database"
 
-DB_HOST="${DB_HOST:-racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com}"
+DB_HOST="${DB_HOST:-racdb-scan.your-vcn.oraclevcn.com}"
 DB_PORT="${DB_PORT:-1521}"
-DB_SERVICE="${DB_SERVICE:-DB0312_r8n_phx.sub01061249390.xstrmconnectdb2.oraclevcn.com}"
+DB_SERVICE="${DB_SERVICE:-your-db-service.oraclevcn.com}"
 CONN_STR="//${DB_HOST}:${DB_PORT}/${DB_SERVICE}"
 
 echo "=== XStream Check and Start ==="
@@ -26,7 +26,7 @@ if [ -z "${DB_SYS_PWD}" ]; then
   echo "  sqlplus sys/<pwd>@//${DB_HOST}:${DB_PORT}/${DB_SERVICE} as sysdba @${SQL_DIR}/09-check-and-start-xstream.sql"
   echo ""
   echo "If outbound does not exist, create it first:"
-  echo "  sqlplus c##xstrmadmin/'ConFL#_uent12'@//${DB_HOST}:${DB_PORT}/${DB_SERVICE} as sysdba @${SQL_DIR}/06-create-outbound-ordermgmt.sql"
+  echo "  sqlplus c##xstrmadmin/<password>@//${DB_HOST}:${DB_PORT}/${DB_SERVICE} as sysdba @${SQL_DIR}/06-create-outbound-ordermgmt.sql"
   exit 1
 fi
 

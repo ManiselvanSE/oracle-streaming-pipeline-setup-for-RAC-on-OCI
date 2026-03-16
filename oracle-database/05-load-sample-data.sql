@@ -1,9 +1,9 @@
 -- =============================================================================
 -- Oracle XStream CDC - Step 5: Load minimal sample data
--- Run as: sqlplus ordermgmt/"ConFL#_uent12"@//host:1521/XSTRPDB...
+-- Run as: sqlplus ordermgmt/<password>@//<host>:1521/XSTRPDB...
 -- =============================================================================
 
--- Run as: sqlplus ordermgmt/"ConFL#_uent12"@//10.0.0.29:1521/XSTRPDB.sub01061249390.xstrmconnectdb2.oraclevcn.com
+-- Run as: sqlplus ordermgmt/<password>@//<rac-scan-ip>:1521/XSTRPDB.<your-vcn>.oraclevcn.com
 
 -- Regions
 INSERT INTO regions (region_id, region_name) VALUES (1, 'Europe');

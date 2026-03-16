@@ -13,11 +13,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${1:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 SQL_DIR="$PROJECT_DIR/oracle-database"
 
-DB_HOST="${DB_HOST:-10.0.0.29}"
+DB_HOST="${DB_HOST:-your-rac-scan-host}"
 DB_PORT="${DB_PORT:-1521}"
-DB_SERVICE="${DB_SERVICE:-DB0312_r8n_phx.sub01061249390.xstrmconnectdb2.oraclevcn.com}"
+DB_SERVICE="${DB_SERVICE:-your-db-service.oraclevcn.com}"
 CONN_STR="//${DB_HOST}:${DB_PORT}/${DB_SERVICE}"
-PWD_XSTRM='ConFL#_uent12'
+PWD_XSTRM="${PWD_XSTRM:-your-xstream-password}"
 
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-/opt/oracle/instantclient/instantclient_19_30}:$LD_LIBRARY_PATH"
 export PATH="${PATH:-/opt/oracle/instantclient/instantclient_19_30}:$PATH"

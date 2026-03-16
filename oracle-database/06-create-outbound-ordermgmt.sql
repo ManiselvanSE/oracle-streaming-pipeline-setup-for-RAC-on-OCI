@@ -4,7 +4,7 @@
 -- Run as XStream admin (c##xstrmadmin) - connect to CDB
 -- =============================================================================
 
--- Connect as: sqlplus c##xstrmadmin/'ConFL#_uent12'@//10.0.0.29:1521/DB0312_r8n_phx... as sysdba
+-- Connect as: sqlplus c##xstrmadmin/<password>@//<rac-host>:1521/<db-service> as sysdba
 
 DECLARE
   tables  DBMS_UTILITY.UNCL_ARRAY;

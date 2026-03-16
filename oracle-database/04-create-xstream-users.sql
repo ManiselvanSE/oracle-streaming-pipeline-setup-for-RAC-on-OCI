@@ -34,7 +34,7 @@ END;
 ALTER SESSION SET CONTAINER = CDB$ROOT;
 
 DECLARE
-  v_pass VARCHAR2(50) := 'ConFL#_uent12';  -- Change if needed; must match connector config
+  v_pass VARCHAR2(50) := 'YourP@ssw0rd123';  -- Change to your password; must match connector config
 BEGIN
   EXECUTE IMMEDIATE 'CREATE USER c##xstrmadmin IDENTIFIED BY "' || v_pass || '" DEFAULT TABLESPACE xstream_adm_tbs QUOTA UNLIMITED ON xstream_adm_tbs CONTAINER=ALL';
 EXCEPTION
@@ -80,7 +80,7 @@ END;
 ALTER SESSION SET CONTAINER = CDB$ROOT;
 
 DECLARE
-  v_pass VARCHAR2(50) := 'ConFL#_uent12';  -- Change if needed; must match connector config
+  v_pass VARCHAR2(50) := 'YourP@ssw0rd123';  -- Change to your password; must match connector config
 BEGIN
   EXECUTE IMMEDIATE 'CREATE USER c##cfltuser IDENTIFIED BY "' || v_pass || '" DEFAULT TABLESPACE xstream_tbs QUOTA UNLIMITED ON xstream_tbs CONTAINER=ALL';
 EXCEPTION
