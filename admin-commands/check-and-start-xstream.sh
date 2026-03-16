@@ -8,8 +8,8 @@ export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-/opt/oracle/instantclient/instantclie
 export PATH="${PATH:-/opt/oracle/instantclient/instantclient_19_30}:$PATH"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="${1:-$(dirname "$SCRIPT_DIR")}"
-SQL_DIR="$PROJECT_DIR/oracle-db-scripts"
+PROJECT_DIR="${1:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+SQL_DIR="$PROJECT_DIR/oracle-database"
 
 DB_HOST="${DB_HOST:-racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com}"
 DB_PORT="${DB_PORT:-1521}"

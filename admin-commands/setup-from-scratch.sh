@@ -13,8 +13,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="${1:-$(dirname "$SCRIPT_DIR")}"
-SQL_DIR="$PROJECT_DIR/oracle-db-scripts"
+PROJECT_DIR="${1:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+SQL_DIR="$PROJECT_DIR/oracle-database"
 
 DB_HOST="${DB_HOST:-10.0.0.29}"
 DB_PORT="${DB_PORT:-1521}"
@@ -70,7 +70,7 @@ echo ""
 echo "Deploying connector..."
 sleep 5
 curl -s -X POST -H "Content-Type: application/json" \
-  --data @"${PROJECT_DIR}/connector-config/oracle-xstream-rac.json" \
+  --data @"${PROJECT_DIR}/xstream-connector/oracle-xstream-rac.json" \
   http://localhost:8083/connectors
 
 echo ""

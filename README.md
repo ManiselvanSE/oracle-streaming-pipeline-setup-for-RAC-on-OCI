@@ -1,6 +1,23 @@
-# Oracle CDC XStream Connector Setup in OCI RAC
+# Oracle CDC XStream Connector – OCI RAC
 
-This guide helps you set up a self-managed Oracle CDC XStream connector in OCI, connecting from the **xstrm-con** VM to the **Mani_RACDB** Oracle RAC database.
+A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent Oracle XStream CDC Connector**, streaming changes from **Oracle RAC** to **Apache Kafka** on OCI.
+
+---
+
+## Table of Contents
+
+- [Architecture Overview](#architecture-overview)
+- [Quick Start](#quick-start)
+- [Oracle Database](#oracle-database)
+- [XStream Connector](#xstream-connector)
+- [Demo: End-to-End Flow](#demo-end-to-end-flow)
+- [Troubleshooting](#troubleshooting)
+- [Monitoring Tools](#monitoring-tools)
+- [Admin Commands](#admin-commands)
+- [Project Structure](#project-structure)
+- [References](#references)
+
+---
 
 ## Architecture Overview
 
@@ -9,395 +26,479 @@ This guide helps you set up a self-managed Oracle CDC XStream connector in OCI, 
 │  OCI - US West (Phoenix)                                                 │
 │                                                                          │
 │  ┌──────────────────────┐         ┌─────────────────────────────────┐  │
-│  │  xstrm-con (VM)       │         │  Mani_RACDB (Oracle RAC)         │  │
-│  │  Public IP:           │  ────►  │  SCAN: racdb-scan.sub0106124...  │  │
-│  │  161.153.48.163       │  1521   │  Port: 1521                       │  │
-│  │  Oracle Linux 9       │         │  Cluster: xstrmracdb              │  │
-│  │                       │         │  VCN: xstrm-connect-db2          │  │
-│  │  - Confluent Platform │         │  SCAN IPs: 10.0.0.29, .238, .91  │  │
-│  │  - Oracle XStream     │         │                                  │  │
-│  │    CDC Connector      │         │  - XStream Out configured        │  │
+│  │  Connector VM         │         │  Oracle RAC                     │  │
+│  │  (mani-xstrm-vm)      │  ────►  │  SCAN: racdb-scan...             │  │
+│  │  Port: 1521           │  1521   │  XStream Out configured          │  │
+│  │                       │         │                                  │  │
+│  │  • Confluent Platform │         │  • XStream Out outbound server   │  │
+│  │  • Oracle XStream     │         │  • Supplemental logging         │  │
+│  │    CDC Connector      │         │  • ORDERMGMT sample schema       │  │
+│  │  • Kafka Connect      │         │                                  │  │
 │  └──────────────────────┘         └─────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Prerequisites Checklist
-
-### 1. SSH Access to VM
-
-**Important:** For SSH login, you need the **private key** (not the public key):
-- **Private key** (for login): `ssh-key-2026-03-12.key` 
-- **Public key** (added to VM): `ssh-key-2026-03-12.key.pub`
-
-The public key must be added to the VM's `~/.ssh/authorized_keys` when the instance was created.
-
-### 2. Network Connectivity
-
-The VM (10.0.0.43) and RAC (10.0.0.29, .238, .91) are in the same subnet. **Ensure the RAC client subnet's Security List allows inbound TCP 1521** from the VM subnet (e.g., 10.0.0.0/24).
-
-- **RAC DB**: SCAN IPs 10.0.0.29, 10.0.0.238, 10.0.0.91 in `xstrm-connect-db2` VCN
-- **VM**: Private IP 10.0.0.43 - same VCN
-- **Action**: Add Security List ingress rule: Source=10.0.0.0/24, Dest Port=1521, Protocol=TCP
-
-### 3. Oracle Database Requirements
-
-- Oracle 19c or 21c Enterprise/Standard Edition
-- ARCHIVELOG mode enabled
-- XStream enabled (`enable_goldengate_replication=TRUE`)
-- Supplemental logging configured
-- XStream administrator and connect users created
-- XStream Out outbound server created
-
-## Quick Start
-
-> **Full setup guide:** See [docs/EXECUTION-GUIDE.md](docs/EXECUTION-GUIDE.md)  
-> **Troubleshooting:** See [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
-
-### Step 1: Connect to the VM via SSH
-
-```bash
-# Use mani-xstrm-vm (137.131.53.98) - same VCN as RAC
-chmod 600 /path/to/ssh-key-2026-03-12.key
-ssh -i /path/to/ssh-key-2026-03-12.key opc@137.131.53.98
-```
-
-> **Note:** OCI Oracle Linux uses `opc` as default user.
-
-### Step 2: Verify Network Connectivity to RAC DB
-
-From the VM, test connectivity to the RAC SCAN address:
-
-```bash
-# Test DNS resolution
-nslookup racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com
-
-# Test port connectivity
-nc -zv racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com 1521
-# or
-telnet racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com 1521
-```
-
-### Step 3: Configure Oracle RAC Database (DBA Task)
-
-Run the SQL scripts in `oracle-db-scripts/` on the RAC database. See [Oracle Database Setup](#oracle-database-setup) below.
-
-### Step 4: Self-Managed Connector Installation (VM)
-
-Follow these steps **in sequence** on the VM (mani-xstrm-vm, 137.131.53.98).
-
-#### 4.1 Copy project to VM (from your Mac)
-
-```bash
-cd /path/to/airtel
-scp -i /path/to/ssh-key-2026-03-12.key -r oracle-xstream-cdc-poc opc@137.131.53.98:/home/opc/
-```
-
-#### 4.2 Run setup script
-
-```bash
-ssh -i /path/to/ssh-key-2026-03-12.key opc@137.131.53.98
-
-chmod +x /home/opc/oracle-xstream-cdc-poc/scripts/setup-vm.sh
-sudo /home/opc/oracle-xstream-cdc-poc/scripts/setup-vm.sh
-```
-
-This installs: Java 17, Confluent Platform 7.9.0, Oracle XStream CDC Connector 1.3.2. Allow 10–15 minutes.
-
-#### 4.2a Install Docker (optional)
-
-Docker is optional. Use it if you prefer `confluent local` (Docker-based) instead of the KRaft tar install.
-
-```bash
-chmod +x /home/opc/oracle-xstream-cdc-poc/scripts/install-docker.sh
-sudo /home/opc/oracle-xstream-cdc-poc/scripts/install-docker.sh
-```
-
-Verify: `sudo docker run hello-world`
-
-To allow `opc` user to run Docker without sudo: log out and SSH back in after install.
-
-**Manual Docker install (Oracle Linux 9):**
-
-```bash
-sudo dnf install -y dnf-plugins-core
-sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-sudo dnf install -y docker-ce docker-ce-cli containerd.io
-sudo systemctl enable docker && sudo systemctl start docker
-sudo usermod -aG docker opc   # then log out and back in
-```
-
-#### 4.3 Install Oracle Instant Client
-
-1. Download from: https://www.oracle.com/database/technologies/instant-client/linux-x86-64-downloads.html  
-2. **Required (connector):** `instantclient-basic-linux.x64-19.30.0.0.0dbru.zip` – Basic Package (OCI, JDBC; includes ojdbc8.jar, xstreams.jar)  
-3. **Optional (SQL*Plus for running SQL scripts):** `instantclient-sqlplus-linux.x64-19.30.0.0.0dbru.zip` – SQL*Plus Package  
-4. Copy and extract on VM:
-
-```bash
-# Create directory
-sudo mkdir -p /opt/oracle/instantclient
-cd /opt/oracle/instantclient
-
-# Required: Basic Package (for connector)
-sudo unzip -o instantclient-basic-linux.x64-19.30.0.0.0dbru.zip
-
-# Optional: SQL*Plus (for running oracle-db-scripts via sqlplus)
-sudo unzip -o instantclient-sqlplus-linux.x64-19.30.0.0.0dbru.zip
-```
-
-**Package names (19.30):**
-
-| Package | Filename | Purpose |
-|---------|----------|---------|
-| Basic | `instantclient-basic-linux.x64-19.30.0.0.0dbru.zip` | Connector (ojdbc8, xstreams, OCI) |
-| SQL*Plus | `instantclient-sqlplus-linux.x64-19.30.0.0.0dbru.zip` | Run SQL scripts (e.g. 07-produce-orders-procedure.sql) |
-
-#### 4.4 Copy Oracle JARs to connector lib
-
-The connector is installed under `confluentinc-kafka-connect-oracle-xstream-cdc-source`. Copy `ojdbc8.jar` and `xstreams.jar` from the Instant Client extract (e.g. `instantclient_19_30/`):
-
-```bash
-sudo cp /opt/oracle/instantclient/instantclient_19_30/ojdbc8.jar \
-  /opt/confluent/confluent/share/confluent-hub-components/confluentinc-kafka-connect-oracle-xstream-cdc-source/lib/
-sudo cp /opt/oracle/instantclient/instantclient_19_30/xstreams.jar \
-  /opt/confluent/confluent/share/confluent-hub-components/confluentinc-kafka-connect-oracle-xstream-cdc-source/lib/
-```
-
-Verify:
-
-```bash
-ls -la /opt/confluent/confluent/share/confluent-hub-components/confluentinc-kafka-connect-oracle-xstream-cdc-source/lib/
-```
-
-#### 4.5 Set LD_LIBRARY_PATH
-
-```bash
-export LD_LIBRARY_PATH=/opt/oracle/instantclient/instantclient_19_30:$LD_LIBRARY_PATH
-```
-
-Persist in profile:
-
-```bash
-echo 'export LD_LIBRARY_PATH=/opt/oracle/instantclient/instantclient_19_30:$LD_LIBRARY_PATH' | sudo tee /etc/profile.d/oracle-instantclient.sh
-```
-
-**SQL*Plus (if installed):** To run SQL scripts (e.g. `07-produce-orders-procedure.sql`):
-
-```bash
-export ORACLE_HOME=/opt/oracle/instantclient/instantclient_19_30
-export PATH=$ORACLE_HOME:$PATH
-export LD_LIBRARY_PATH=$ORACLE_HOME:$LD_LIBRARY_PATH
-sqlplus ordermgmt/<password>@//racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com:1521/XSTRPDB.sub01061249390.xstrmconnectdb2.oraclevcn.com
-```
-
-#### 4.6 Start Confluent Platform (KRaft mode, no Zookeeper)
-
-**First run – fix permissions** (Confluent was installed with sudo, so logs dir is root-owned):
-
-```bash
-sudo mkdir -p /opt/confluent/confluent/logs
-sudo chown -R opc:opc /opt/confluent/confluent/logs
-```
-
-**Start Confluent:**
-
-```bash
-export LD_LIBRARY_PATH=/opt/oracle/instantclient/instantclient_19_30:$LD_LIBRARY_PATH
-cd /home/opc/oracle-xstream-cdc-poc
-chmod +x scripts/start-confluent-kraft.sh
-./scripts/start-confluent-kraft.sh
-```
-
-To stop: `./scripts/stop-confluent-kraft.sh`
-
-**If `kafka-storage` not found:** The Confluent community tar may not include it. Try `ls /opt/confluent/confluent/bin/ | grep storage` to verify. If missing, use Docker: `confluent local services start`.
-
-**Alternative (Docker):** If Docker is installed, you can use `confluent local services start` instead.
-
-#### 4.7 Update connector config and deploy
-
-1. Copy `oracle-xstream-rac.json.example` to `oracle-xstream-rac.json` and set `database.password`, `database.service.name`, `table.include.list`  
-2. Deploy:
-
-```bash
-curl -X POST -H "Content-Type: application/json" \
-  --data @/home/opc/oracle-xstream-cdc-poc/connector-config/oracle-xstream-rac.json \
-  http://localhost:8083/connectors
-```
-
-#### 4.8 List and describe Kafka topics
-
-**List all topics:**
-```bash
-/opt/confluent/confluent/bin/kafka-topics --bootstrap-server localhost:9092 --list
-```
-
-**List CDC topics only:**
-```bash
-/opt/confluent/confluent/bin/kafka-topics --bootstrap-server localhost:9092 --list | grep racdb
-```
-
-**Describe a topic (partitions, replication, config):**
-```bash
-/opt/confluent/confluent/bin/kafka-topics --bootstrap-server localhost:9092 \
-  --describe --topic racdb.XSTRPDB.ORDERMGMT.REGIONS
-```
-
-**Describe all topics:**
-```bash
-/opt/confluent/confluent/bin/kafka-topics --bootstrap-server localhost:9092 --describe
-```
-
-**Example CDC topics:** `racdb.XSTRPDB.ORDERMGMT.REGIONS`, `racdb.XSTRPDB.ORDERMGMT.ORDERS`, etc.
-
-#### Key paths (reference)
-
-| Component | Path |
-|-----------|------|
-| Confluent Platform | `/opt/confluent/confluent/` |
-| Connector lib | `/opt/confluent/confluent/share/confluent-hub-components/confluentinc-kafka-connect-oracle-xstream-cdc-source/lib/` |
-| Oracle Instant Client | `/opt/oracle/instantclient/instantclient_19_30` |
-
-### Step 5: Deploy and Start the Connector
-
-Use the connector configuration in `connector-config/oracle-xstream-rac.json`.
+> **Screenshot:** Add `screenshots/architecture-overview.png` for a visual diagram.
 
 ---
 
-## Oracle Database Setup
+## Quick Start
 
-Your DBA must run these scripts on the RAC database. Connect as SYSDBA.
+| Step | Action |
+|------|--------|
+| 1 | SSH to VM: `ssh -i key.pem opc@<vm-ip>` |
+| 2 | Copy project: `scp -r oracle-xstream-cdc-poc opc@<vm-ip>:/home/opc/` |
+| 3 | Run setup: `sudo ./oracle-xstream-cdc-poc/admin-commands/setup-vm.sh` |
+| 4 | Configure connector: Copy `xstream-connector/oracle-xstream-rac-connector.properties.example` → `oracle-xstream-rac-connector.properties` and set `database.password`, `database.service.name` |
+| 5 | Start stack: `./admin-commands/start-confluent-standalone.sh` |
+| 6 | Verify: `curl -s http://localhost:8083/connectors/oracle-xstream-rac-connector/status \| jq .` |
 
-### 3.1 Run scripts in order (01 → 08)
+**Detailed guides:**
+- [docs/EXECUTION-GUIDE.md](docs/EXECUTION-GUIDE.md) – Full setup commands
+- [docs/EXECUTION-GUIDE.md#part-6-onboard-new-tables](docs/EXECUTION-GUIDE.md#part-6-onboard-new-tables-to-existing-cdc-pipeline) – Add new tables to CDC
 
-Execute in sequence: `01` → `02` → `03` → `04` → `05` → `06` → `07`.
+---
 
-### 3.2 Enable XStream and Verify ARCHIVELOG
+## Directory Structure
+
+| Directory | Contents |
+|-----------|----------|
+| [oracle-database/](oracle-database/) | SQL scripts for Oracle RAC setup (run 01→14 in order) |
+| [xstream-connector/](xstream-connector/) | Connector configuration (properties, examples) |
+| [admin-commands/](admin-commands/) | Start, stop, setup, teardown scripts |
+| [monitoring/](monitoring/) | Grafana, Prometheus, Kafka Exporter setup and docs |
+| [troubleshooting/](troubleshooting/) | Troubleshooting guide |
+| [screenshots/](screenshots/) | Documentation screenshots |
+| [config/](config/) | Kafka, Schema Registry, Connect configs |
+
+---
+
+## Oracle Database
+
+The Oracle RAC database must have XStream enabled and the outbound server configured. Run the SQL scripts in [oracle-database/](oracle-database/) **in order** (01 → 14).
+
+### Prerequisites
+
+| Requirement | Check |
+|-------------|-------|
+| Oracle 19c/21c Enterprise/Standard | `SELECT * FROM v$version;` |
+| ARCHIVELOG mode | `SELECT LOG_MODE FROM V$DATABASE;` |
+| XStream enabled | `SELECT VALUE FROM V$PARAMETER WHERE NAME = 'enable_goldengate_replication';` |
+| Supplemental logging | See script `03-supplemental-logging.sql` |
+
+### Script Execution Order
+
+| # | Script | Purpose |
+|---|--------|---------|
+| 01 | `01-create-sample-schema.sql` | ORDERMGMT schema and tables |
+| 02 | `02-enable-xstream.sql` | Enable XStream replication |
+| 03 | `03-supplemental-logging.sql` | Supplemental logging for CDC |
+| 04 | `04-create-xstream-users.sql` | XStream admin and connect users |
+| 05 | `05-load-sample-data.sql` | Sample data for ORDERMGMT |
+| 06 | `06-create-outbound-ordermgmt.sql` | XStream Out outbound server |
+| 07 | `07-produce-orders-procedure.sql` | Test data generation |
+| 08 | `08-verify-xstream-outbound.sql` | Verify outbound configuration |
+| 09 | `09-check-and-start-xstream.sql` | Check/start capture and apply |
+| 10 | `10-teardown-xstream-outbound.sql` | Drop outbound (teardown) |
+| 11 | `11-add-table-to-cdc.sql` | Add new table to existing CDC |
+| 12–14 | `12-create-mtx-transaction-items.sql` etc. | MTX_TRANSACTION_ITEMS onboarding |
+
+### Key SQL Commands
 
 ```sql
 -- Enable XStream (all RAC instances)
 ALTER SYSTEM SET enable_goldengate_replication=TRUE SCOPE=BOTH;
 
--- Verify
-SELECT VALUE FROM V$PARAMETER WHERE NAME = 'enable_goldengate_replication';
-SELECT LOG_MODE FROM V$DATABASE;  -- Should show ARCHIVELOG
+-- Get XStream service name (for connector config)
+SELECT network_name FROM gv$SERVICES WHERE NAME LIKE '%XOUT%' AND ROWNUM=1;
+
+-- Verify capture process
+SELECT CAPTURE_NAME, STATE FROM DBA_CAPTURE;
 ```
-
-### 3.3 Supplemental Logging
-
-```sql
--- Minimal (prerequisite)
-ALTER DATABASE ADD SUPPLEMENTAL LOG DATA;
-
--- For specific tables (recommended for POC) - ORDERMGMT schema from 01-create-sample-schema.sql
-ALTER SESSION SET CONTAINER = XSTRPDB;
-ALTER TABLE ORDERMGMT.REGIONS ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-ALTER TABLE ORDERMGMT.COUNTRIES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-ALTER TABLE ORDERMGMT.LOCATIONS ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-ALTER TABLE ORDERMGMT.WAREHOUSES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-ALTER TABLE ORDERMGMT.EMPLOYEES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-ALTER TABLE ORDERMGMT.PRODUCT_CATEGORIES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-ALTER TABLE ORDERMGMT.PRODUCTS ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-ALTER TABLE ORDERMGMT.CUSTOMERS ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-ALTER TABLE ORDERMGMT.CONTACTS ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-ALTER TABLE ORDERMGMT.ORDERS ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-ALTER TABLE ORDERMGMT.ORDER_ITEMS ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-ALTER TABLE ORDERMGMT.INVENTORIES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-ALTER TABLE ORDERMGMT.NOTES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
-```
-
-### 3.4 Create XStream Users and Outbound Server
-
-See `oracle-db-scripts/` for complete SQL scripts. Run in order: 01 → 02 → 03 → 04 → 05 → 06 → 07.
 
 ---
 
-## RAC-Specific Connector Configuration
+## XStream Connector
 
-For Oracle RAC, use the **SCAN address** as `database.hostname` and the **XStream service name** from `gv$SERVICES`.
+The connector runs in **Kafka Connect standalone mode**. It starts automatically with Connect—no REST deploy step.
 
-### Get XStream service name (RAC)
+### Configuration
 
-Run this on the RAC database after creating the XStream outbound server:
+| Property | Description |
+|----------|-------------|
+| `database.hostname` | RAC SCAN address |
+| `database.service.name` | XStream service from `gv$SERVICES` (escape `$` as `\\$`) |
+| `database.pdb.name` | PDB name (e.g. `XSTRPDB`) |
+| `table.include.list` | Regex of tables to capture (e.g. `ORDERMGMT\.(REGIONS\|ORDERS\|...)`) |
+| `snapshot.mode` | `initial` (full snapshot + streaming) or `recovery` (schema history rebuild) |
 
-```sql
-SELECT inst_id, service_id, name, network_name 
-FROM gv$SERVICES 
-WHERE NAME LIKE '%XOUT%';
+### Connector Status
+
+![Connector Status](screenshots/connector-status.png)
+
+*Add screenshot: `screenshots/connector-status.png` – Output of `curl -s http://localhost:8083/connectors/oracle-xstream-rac-connector/status | jq .`*
+
+```bash
+# Check connector and task status
+curl -s http://localhost:8083/connectors/oracle-xstream-rac-connector/status | jq .
+
+# Expected: connector.state=RUNNING, tasks[0].state=RUNNING
 ```
 
-Use the `network_name` value as `database.service.name` in the connector config. Example output:
+### Kafka Topics (CDC)
 
-```
-   INST_ID SERVICE_ID
----------- ----------
-NAME
-----------------------------------------------------------------
-NETWORK_NAME
---------------------------------------------------------------------------------
-         1          3
-SYS.Q$_XOUT_5
-SYS$SYS.Q$_XOUT_5.DB0312.SUB01061249390.XSTRMCONNECTDB2.ORACLEVCN.COM
-```
+![Kafka Topics](screenshots/kafka-topics.png)
 
-### Connector properties
+*Add screenshot: `screenshots/kafka-topics.png` – Output of `kafka-topics --list`*
 
-| Property | Value |
-|----------|-------|
-| database.hostname | `racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com` |
-| database.port | `1521` |
-| database.service.name | *(From `network_name` in query above, e.g. `SYS$SYS.Q$_XOUT_5.DB0312.SUB01061249390.XSTRMCONNECTDB2.ORACLEVCN.COM`)* |
+| Topic | Purpose |
+|-------|---------|
+| `__orcl-schema-changes.racdb` | Schema history (internal) |
+| `__cflt-oracle-heartbeat.racdb` | Heartbeat |
+| `racdb.ORDERMGMT.REGIONS` | CDC data per table |
+| `racdb.ORDERMGMT.MTX_TRANSACTION_ITEMS` | CDC data |
 
 ---
 
-## File Structure
+## Demo: End-to-End Flow
+
+This section demonstrates the complete data flow from **Oracle** → **XStream** → **Connector** → **Kafka** using the `MTX_TRANSACTION_ITEMS` table.
+
+> **Live demo script:** For a step-by-step script suitable for live demonstrations, see [docs/DEMO.md](docs/DEMO.md).
+
+### 1. Source Table
+
+`MTX_TRANSACTION_ITEMS` is the source table in the Oracle Database (ORDERMGMT schema, XSTRPDB PDB). It stores transaction item records for CDC capture.
+
+**Key columns:**
+
+| Column | Type | Description |
+|--------|------|--------------|
+| `UNIQUE_SEQ_NUMBER` | VARCHAR2(50) | Primary key |
+| `TRANSFER_ID` | VARCHAR2(20) | Transfer identifier |
+| `PARTY_ID` | VARCHAR2(20) | Party identifier |
+| `ACCOUNT_ID` | VARCHAR2(60) | Account identifier |
+| `REQUESTED_VALUE` | NUMBER(19,0) | Requested amount |
+| `APPROVED_VALUE` | NUMBER(19,0) | Approved amount |
+| `TRANSFER_DATE` | DATE | Transfer date |
+| `TRANSACTION_TYPE` | VARCHAR2(6) | Transaction type |
+| `TRANSFER_STATUS` | VARCHAR2(3) | Status (e.g. COM, PEN) |
+
+Full DDL: [oracle-database/12-create-mtx-transaction-items.sql](oracle-database/12-create-mtx-transaction-items.sql)
+
+![Oracle Table](screenshots/demo-oracle-insert.png)
+
+*Add screenshot: `screenshots/demo-oracle-insert.png` – Oracle SQL*Plus or SQL Developer showing the table structure*
+
+---
+
+### 2. Insert Data into Oracle
+
+Connect as `ordermgmt` and run:
+
+```sql
+INSERT INTO ORDERMGMT.MTX_TRANSACTION_ITEMS (
+  TRANSFER_ID, PARTY_ID, USER_TYPE, ENTRY_TYPE, ACCOUNT_ID,
+  TRANSFER_DATE, TRANSACTION_TYPE, SECOND_PARTY, PROVIDER_ID,
+  TXN_SEQUENCE_NUMBER, PAYMENT_TYPE_ID, SECOND_PARTY_PROVIDER_ID, UNIQUE_SEQ_NUMBER,
+  REQUESTED_VALUE, APPROVED_VALUE, TRANSFER_STATUS, USER_NAME
+) VALUES (
+  'TRF001', 'P001', 'REG', 'DR', 'ACC001',
+  SYSDATE, 'TRANS', 'P002', 1,
+  1001, 1, 1, 'SEQ-MTX-001-' || TO_CHAR(SYSDATE,'YYYYMMDDHH24MISS'),
+  1000, 1000, 'COM', 'DemoUser'
+);
+COMMIT;
+```
+
+Or use the provided script:
+
+```bash
+sqlplus ordermgmt/<password>@//racdb-scan...:1521/XSTRPDB... @oracle-database/14-insert-mtx-transaction-items.sql
+```
+
+---
+
+### 3. XStream Capture
+
+1. **Oracle redo/archive logs** – The INSERT is written to the redo log.
+2. **XStream Capture process** (`CONFLUENT_XOUT1`) – Reads from the redo stream and captures the change (INSERT) for tables in the XStream outbound.
+3. **XStream Out** – Delivers the Logical Change Record (LCR) to the connector via the XStream API.
+
+The connector subscribes to the XStream outbound server and receives LCRs in near real-time.
+
+---
+
+### 4. Kafka Connector Processing
+
+1. **Oracle XStream CDC Connector** – Receives the LCR from XStream.
+2. **Debezium format** – Converts the change into a Debezium JSON envelope (`before`, `after`, `source`).
+3. **Kafka produce** – Publishes the event to the CDC topic.
+
+**Kafka topic:** `racdb.ORDERMGMT.MTX_TRANSACTION_ITEMS` (or `racdb.XSTRPDB.ORDERMGMT.MTX_TRANSACTION_ITEMS` depending on connector config)
+
+![Connector Logs](screenshots/demo-connector-logs.png)
+
+*Add screenshot: `screenshots/demo-connector-logs.png` – Connect log showing "records sent" or streaming activity (optional)*
+
+---
+
+### 5. Verify Data in Kafka
+
+**Consumer command:**
+
+```bash
+/opt/confluent/confluent/bin/kafka-console-consumer \
+  --bootstrap-server localhost:9092 \
+  --topic racdb.ORDERMGMT.MTX_TRANSACTION_ITEMS \
+  --partition 0 --offset 0 \
+  --max-messages 3
+```
+
+**Sample output** (Debezium JSON for an INSERT):
+
+```json
+{"before":null,"after":{"TRANSFER_ID":"TRF001","PARTY_ID":"P001","USER_TYPE":"REG","ENTRY_TYPE":"DR","ACCOUNT_ID":"ACC001","REQUESTED_VALUE":1000,"APPROVED_VALUE":1000,"TRANSFER_STATUS":"COM","USER_NAME":"DemoUser",...},"source":{"version":"1.3.2","connector":"Oracle XStream CDC","name":"racdb","ts_ms":1710700000000,"snapshot":"false","db":"XSTRPDB","schema":"ORDERMGMT","table":"MTX_TRANSACTION_ITEMS"},"op":"c","ts_ms":1710700001234}
+```
+
+- `before`: null (INSERT has no previous state)
+- `after`: New row data
+- `source`: Connector metadata (table, schema, timestamp)
+- `op`: `c` = create (INSERT)
+
+![Kafka Output](screenshots/demo-kafka-output.png)
+
+*Add screenshot: `screenshots/demo-kafka-output.png` – Kafka consumer output showing the CDC message*
+
+---
+
+### 6. Full Flow Summary
+
+```
+Oracle Table          XStream Capture       XStream Connector      Kafka Topic                    Consumer
+MTX_TRANSACTION_ITEMS ──► LCR (redo) ──► Debezium JSON ──► racdb.ORDERMGMT.MTX_TRANSACTION_ITEMS ──► JSON output
+      │                       │                    │                           │
+   INSERT                  Redo log            LCR → JSON                 Produce event
+```
+
+| Step | Component | Action |
+|------|-----------|--------|
+| 1 | Oracle | INSERT into MTX_TRANSACTION_ITEMS |
+| 2 | XStream Capture | Reads redo, produces LCR |
+| 3 | XStream Connector | Receives LCR, converts to Debezium JSON |
+| 4 | Kafka | Event published to topic |
+| 5 | Consumer | Reads message from topic |
+
+---
+
+### 7. Screenshots Checklist
+
+| Screenshot | Path | Description |
+|------------|------|--------------|
+| Oracle insert | `screenshots/demo-oracle-insert.png` | SQL*Plus or SQL Developer – table/insert |
+| Connector logs | `screenshots/demo-connector-logs.png` | Connect log – streaming/snapshot (optional) |
+| Kafka output | `screenshots/demo-kafka-output.png` | Kafka consumer – sample CDC message |
+| Monitoring | `screenshots/demo-monitoring.png` | Grafana/Prometheus – throughput (optional) |
+
+---
+
+## Troubleshooting
+
+See [troubleshooting/TROUBLESHOOTING.md](troubleshooting/TROUBLESHOOTING.md) for detailed fixes. Summary:
+
+| Issue | Fix |
+|-------|-----|
+| **Tasks empty after restart** | Remove `data/connect-standalone.offsets`, restart Connect |
+| **All CDC topics empty** | Clean restart: stop stack, remove offset file, start `admin-commands/start-confluent-standalone.sh` |
+| **Connect won't start** | `./admin-commands/restart-connect-only.sh` (Kafka must be running) |
+| **ORA-12514 / service name** | Re-query `gv$SERVICES` for `network_name`, update `database.service.name` |
+| **Capture ABORTED** | `DBMS_CAPTURE_ADM.STOP_CAPTURE` then `START_CAPTURE` |
+| **Schema history missing** | Use `snapshot.mode=recovery` first, then switch to `initial` |
+
+### Clean Restart (Forces Fresh Snapshot)
+
+```bash
+./admin-commands/stop-confluent-kraft.sh
+sleep 10
+rm -f /home/opc/oracle-xstream-cdc-poc/data/connect-standalone.offsets
+./admin-commands/start-confluent-standalone.sh
+```
+
+---
+
+## Monitoring Tools
+
+Grafana, Prometheus, and Kafka Exporter provide throughput and lag monitoring.
+
+### Port Forwarding
+
+Forward monitoring ports to your local machine:
+
+```bash
+ssh -i /path/to/ssh-key.pem \
+  -L 3000:localhost:3000 \
+  -L 8081:localhost:8081 \
+  -L 8083:localhost:8083 \
+  -L 9090:localhost:9090 \
+  -L 9308:localhost:9308 \
+  opc@<vm-ip>
+```
+
+Then open the URLs below on **localhost**.
+
+### Dashboard URLs
+
+| Service | Port | URL (via tunnel) | Purpose |
+|---------|------|------------------|---------|
+| **Grafana** | 3000 | http://localhost:3000 | Dashboards, Kafka throughput |
+| **Prometheus** | 9090 | http://localhost:9090 | Metrics, targets |
+| **Kafka Exporter** | 9308 | http://localhost:9308/metrics | Kafka metrics (Prometheus format) |
+| **Schema Registry** | 8081 | http://localhost:8081 | Schema Registry REST API |
+| **Kafka Connect** | 8083 | http://localhost:8083 | Connect REST API, connector status |
+
+### Grafana Dashboard
+
+![Grafana Kafka Dashboard](screenshots/grafana-dashboard.png)
+
+*Add screenshot: `screenshots/grafana-dashboard.png` – Grafana Kafka Exporter dashboard*
+
+1. Add Prometheus datasource: URL `http://localhost:9090` or `http://prometheus:9090`
+2. Import dashboard: **Dashboards** → **Import** → ID **7589** (Kafka Exporter)
+
+### Prometheus Targets
+
+![Prometheus Targets](screenshots/prometheus-targets.png)
+
+*Add screenshot: `screenshots/prometheus-targets.png` – Prometheus targets page*
+
+### Start / Stop Monitoring Services
+
+| Action | Command |
+|--------|---------|
+| **Install Grafana** | `./monitoring/scripts/install-grafana-docker.sh` |
+| **Install Prometheus + Kafka Exporter** | `./monitoring/scripts/install-prometheus-kafka-exporter.sh` |
+| **Start Grafana** | `docker start grafana` |
+| **Stop Grafana** | `docker stop grafana` |
+| **Start Prometheus** | `docker start prometheus` |
+| **Stop Prometheus** | `docker stop prometheus` |
+| **Start Kafka Exporter** | `docker start kafka-exporter` |
+| **Stop Kafka Exporter** | `docker stop kafka-exporter` |
+| **Stop all monitoring** | `docker stop grafana prometheus kafka-exporter` |
+| **Check status** | `docker ps \| grep -E 'grafana\|prometheus\|kafka-exporter'` |
+
+**Docs:** [monitoring/docs/GRAFANA-SETUP.md](monitoring/docs/GRAFANA-SETUP.md), [monitoring/docs/MONITORING-SETUP.md](monitoring/docs/MONITORING-SETUP.md)
+
+---
+
+## Admin Commands
+
+### Connector (Kafka Connect)
+
+| Action | Command |
+|--------|---------|
+| **Start** | Connector starts with Connect. Use `./admin-commands/restart-connect-only.sh` |
+| **Stop** | `pkill -f connect-standalone` |
+| **Status** | `curl -s http://localhost:8083/connectors/oracle-xstream-rac-connector/status \| jq .` |
+| **List connectors** | `curl -s http://localhost:8083/connectors \| jq .` |
+| **Logs** | `tail -f /tmp/connect-standalone.log` |
+
+### Schema Registry
+
+| Action | Command |
+|--------|---------|
+| **Start** | Started by `admin-commands/start-confluent-standalone.sh` or `admin-commands/start-confluent-kraft.sh` |
+| **Stop** | `pkill -f schema-registry` |
+| **Status** | `curl -s http://localhost:8081/subjects \| jq .` |
+| **Health** | `curl -s http://localhost:8081/` |
+
+### Kafka
+
+| Action | Command |
+|--------|---------|
+| **Start** | `./admin-commands/start-confluent-standalone.sh` or `./admin-commands/start-confluent-kraft.sh` |
+| **Stop** | `./admin-commands/stop-confluent-kraft.sh` |
+| **Status** | `kafka-broker-api-versions --bootstrap-server localhost:9092` |
+| **List topics** | `kafka-topics --bootstrap-server localhost:9092 --list` |
+| **Describe topic** | `kafka-topics --bootstrap-server localhost:9092 --describe --topic <topic>` |
+
+### Full Stack
+
+| Action | Command |
+|--------|---------|
+| **Start all** | `./admin-commands/start-confluent-standalone.sh` |
+| **Stop all** | `./admin-commands/stop-confluent-kraft.sh` |
+| **Restart Connect only** | `./admin-commands/restart-connect-only.sh` (Kafka + Schema Registry must be running) |
+
+### Quick Validation
+
+```bash
+# Connector
+curl -s http://localhost:8083/connectors | jq .
+curl -s http://localhost:8083/connectors/oracle-xstream-rac-connector/status | jq .
+
+# Schema Registry
+curl -s http://localhost:8081/subjects | jq .
+
+# Kafka
+/opt/confluent/confluent/bin/kafka-topics --bootstrap-server localhost:9092 --list | grep racdb
+
+# Prometheus
+curl -s http://localhost:9090/-/healthy
+
+# Kafka Exporter
+curl -s http://localhost:9308/metrics | head -5
+```
+
+---
+
+## Project Structure
 
 ```
 oracle-xstream-cdc-poc/
-├── README.md                    # This file
-├── oracle-db-scripts/           # SQL scripts for Oracle DB setup
-│   ├── 01-create-sample-schema.sql    # ORDERMGMT sample (from ora0600/confluent-new-cdc-connector)
-│   ├── 02-enable-xstream.sql
-│   ├── 03-supplemental-logging.sql
-│   ├── 04-create-xstream-users.sql
-│   ├── 05-load-sample-data.sql
-│   ├── 06-create-outbound-ordermgmt.sql
-│   ├── 07-produce-orders-procedure.sql
-│   ├── 08-verify-xstream-outbound.sql   # Verify outbound server config
-│   ├── 09-check-and-start-xstream.sql   # Check status, start capture/apply if disabled
-│   └── 10-teardown-xstream-outbound.sql # Drop XStream outbound (teardown)
-├── config/                      # KRaft configs (server-kraft.properties, schema-registry-kraft.properties)
-├── connector-config/
-│   ├── oracle-xstream-rac.json.example   # Template (copy to oracle-xstream-rac.json, add secrets)
-│   └── README.md
-├── scripts/                     # VM setup and utility scripts
+├── README.md
+├── config/                      # Kafka, Schema Registry, Connect configs
+├── data/                        # Kafka logs, Connect offsets (persistent)
+├── oracle-database/             # SQL scripts (run 01→14 in order)
+├── xstream-connector/           # Connector config (properties, examples)
+├── admin-commands/              # Start, stop, setup, teardown
 │   ├── setup-vm.sh
-│   ├── install-docker.sh          # Optional: Install Docker on Oracle Linux 9
-│   ├── start-confluent-kraft.sh   # Start Confluent 7.9 with KRaft (no Zookeeper)
+│   ├── start-confluent-standalone.sh
 │   ├── stop-confluent-kraft.sh
-│   ├── verify-connectivity.sh
-│   ├── check-and-start-xstream.sh # Check/start XStream capture and apply on DB
-│   ├── teardown-vm.sh            # Stop Confluent, delete connector, Kafka data
-│   ├── teardown-all.sh           # Full teardown (DB + VM)
-│   ├── setup-from-scratch.sh     # Setup after teardown (Confluent + connector)
-│   └── ssh-connect.sh
-├── docs/
-│   └── EXECUTION-GUIDE.md       # Complete setup commands and flow
-├── TROUBLESHOOTING.md           # Common issues and fixes
+│   ├── restart-connect-only.sh
+│   └── ...
+├── monitoring/                  # Grafana, Prometheus, Kafka Exporter
+│   ├── config/prometheus.yml
+│   ├── scripts/
+│   │   ├── install-grafana-docker.sh
+│   │   └── install-prometheus-kafka-exporter.sh
+│   └── docs/
+│       ├── GRAFANA-SETUP.md
+│       └── MONITORING-SETUP.md
+├── troubleshooting/             # Troubleshooting guide
+│   └── TROUBLESHOOTING.md
+├── screenshots/                 # Add screenshots here
+└── docs/
+    ├── EXECUTION-GUIDE.md
+    └── DEMO.md                  # Step-by-step live demo script
 ```
 
 ---
 
-## Before First Use
+## Prerequisites
 
-1. Copy `connector-config/oracle-xstream-rac.json.example` to `oracle-xstream-rac.json`
-2. Edit `oracle-xstream-rac.json`: set `database.password`, `database.service.name`, `database.hostname` for your environment
-3. Deploy with: `curl -X POST -H "Content-Type: application/json" --data @connector-config/oracle-xstream-rac.json http://localhost:8083/connectors`
+- **SSH:** Private key for VM access (e.g. `ssh-key-2026-03-12.key`)
+- **Network:** Security List allows TCP 1521 from VM subnet to RAC
+- **Oracle:** 19c/21c, ARCHIVELOG, XStream enabled
+- **VM:** Oracle Linux 9, ~11 GB RAM recommended
+
+---
 
 ## Security Note
 
-- `oracle-xstream-rac.json` (with real credentials) is in `.gitignore` and is not committed.
-- SQL scripts and setup scripts use a default POC password. **Change all passwords before production use.**
+- Connector config with credentials (`xstream-connector/oracle-xstream-rac-connector.properties`) is in `.gitignore`
+- SQL scripts use POC passwords—**change before production**
+
+---
 
 ## License Note
 
@@ -407,5 +508,5 @@ The Oracle XStream CDC connector is a **Confluent Premium connector** requiring 
 
 ## References
 
-- [Confluent Oracle XStream CDC Connector Docs](https://docs.confluent.io/kafka-connectors/oracle-xstream-cdc-source/current/overview.html)
+- [Confluent Oracle XStream CDC Connector](https://docs.confluent.io/kafka-connectors/oracle-xstream-cdc-source/current/overview.html)
 - [Oracle XStream Out Configuration](https://docs.oracle.com/en/database/oracle/oracle-database/19/xstrm/configuring-xstream-out.html)

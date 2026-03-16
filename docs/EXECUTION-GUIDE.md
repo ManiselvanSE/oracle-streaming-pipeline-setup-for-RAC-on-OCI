@@ -28,19 +28,19 @@ This document records **all commands and expected outputs** in execution order. 
 cd /home/opc/oracle-xstream-cdc-poc
 
 # DB + VM teardown (drops XStream outbound, stops Confluent, deletes Kafka data)
-DB_SYS_PWD='<sys_password>' ./scripts/teardown-all.sh
+DB_SYS_PWD='<sys_password>' ./admin-commands/teardown-all.sh
 
 # VM only (skip DB):
-./scripts/teardown-all.sh --vm-only
+./admin-commands/teardown-all.sh --vm-only
 
 # DB only (skip VM):
-DB_SYS_PWD='<pwd>' ./scripts/teardown-all.sh --db-only
+DB_SYS_PWD='<pwd>' ./admin-commands/teardown-all.sh --db-only
 ```
 
 **Full VM reinstall** (remove Confluent + Oracle client, then run setup-vm.sh again):
 ```bash
-TEARDOWN_FULL=true ./scripts/teardown-all.sh --vm-only
-# Then: sudo ./scripts/setup-vm.sh
+TEARDOWN_FULL=true ./admin-commands/teardown-all.sh --vm-only
+# Then: sudo ./admin-commands/setup-vm.sh
 ```
 
 ## 0.2 Setup from scratch (after teardown)
@@ -49,13 +49,13 @@ TEARDOWN_FULL=true ./scripts/teardown-all.sh --vm-only
 cd /home/opc/oracle-xstream-cdc-poc
 
 # VM only (Confluent + connector; assumes DB 01-06 already run)
-./scripts/setup-from-scratch.sh
+./admin-commands/setup-from-scratch.sh
 
 # Full (DB outbound + VM)
-DB_SYS_PWD='<pwd>' ./scripts/setup-from-scratch.sh --with-db
+DB_SYS_PWD='<pwd>' ./admin-commands/setup-from-scratch.sh --with-db
 
 # If c##xstrmadmin has a different password:
-DB_SYS_PWD='<sys_pwd>' DB_XSTRM_PWD='<xstrmadmin_pwd>' ./scripts/setup-from-scratch.sh --with-db
+DB_SYS_PWD='<sys_pwd>' DB_XSTRM_PWD='<xstrmadmin_pwd>' ./admin-commands/setup-from-scratch.sh --with-db
 ```
 
 **Prerequisites for --with-db:** Oracle scripts 01-05 must have been run at least once (schema, users, supplemental logging). The teardown only drops the XStream outbound (06); it does not drop the schema.
@@ -278,7 +278,7 @@ PL/SQL procedure successfully completed.
 export LD_LIBRARY_PATH=/opt/oracle/instantclient/instantclient_19_30:$LD_LIBRARY_PATH
 export PATH=/opt/oracle/instantclient/instantclient_19_30:$PATH
 
-sqlplus ordermgmt/"ConFL#_uent12"@//racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com:1521/XSTRPDB.sub01061249390.xstrmconnectdb2.oraclevcn.com @/home/opc/oracle-xstream-cdc-poc/oracle-db-scripts/05-load-sample-data.sql
+sqlplus ordermgmt/"ConFL#_uent12"@//racdb-scan.sub01061249390.xstrmconnectdb2.oraclevcn.com:1521/XSTRPDB.sub01061249390.xstrmconnectdb2.oraclevcn.com @/home/opc/oracle-xstream-cdc-poc/oracle-database/05-load-sample-data.sql
 ```
 
 Then restart the connector and wait 2–3 minutes:
@@ -325,7 +325,7 @@ SYS$SYS.Q$_XOUT_5.DB0312.SUB01061249390.XSTRMCONNECTDB2.ORACLEVCN.COM
 **From VM (recommended):**
 ```bash
 cd /home/opc/oracle-xstream-cdc-poc
-DB_SYS_PWD='<sys_password>' ./scripts/check-and-start-xstream.sh
+DB_SYS_PWD='<sys_password>' ./admin-commands/check-and-start-xstream.sh
 ```
 
 **Or manually via SQL*Plus:**
@@ -378,8 +378,8 @@ oracle-xstream-rac.json    100%  ...
 ```bash
 ssh -i /path/to/ssh-key-2026-03-12.key opc@137.131.53.98
 
-chmod +x /home/opc/oracle-xstream-cdc-poc/scripts/setup-vm.sh
-sudo /home/opc/oracle-xstream-cdc-poc/scripts/setup-vm.sh
+chmod +x /home/opc/oracle-xstream-cdc-poc/admin-commands/setup-vm.sh
+sudo /home/opc/oracle-xstream-cdc-poc/admin-commands/setup-vm.sh
 ```
 
 **Why:** Installs Java 17, Confluent Platform 7.9, Oracle XStream CDC connector.
@@ -469,8 +469,8 @@ sudo chown -R opc:opc /opt/confluent/confluent/logs
 ```bash
 export LD_LIBRARY_PATH=/opt/oracle/instantclient/instantclient_19_30:$LD_LIBRARY_PATH
 cd /home/opc/oracle-xstream-cdc-poc
-chmod +x scripts/start-confluent-kraft.sh
-./scripts/start-confluent-kraft.sh
+chmod +x admin-commands/start-confluent-kraft.sh
+./admin-commands/start-confluent-kraft.sh
 ```
 
 **Why:** Starts Kafka (KRaft), Schema Registry, and Kafka Connect without Zookeeper.
@@ -502,7 +502,7 @@ Kafka Connect: http://localhost:8083
 
 ## 3.1 Update Connector Config
 
-Edit `connector-config/oracle-xstream-rac.json`:
+Edit `xstream-connector/oracle-xstream-rac.json`:
 
 - `database.service.name` = `network_name` from step 1.8
 - `database.password` = connect user password
@@ -515,7 +515,7 @@ Edit `connector-config/oracle-xstream-rac.json`:
 ```bash
 cd /home/opc/oracle-xstream-cdc-poc
 curl -X POST -H "Content-Type: application/json" \
-  --data @connector-config/oracle-xstream-rac.json \
+  --data @xstream-connector/oracle-xstream-rac.json \
   http://localhost:8083/connectors
 ```
 
@@ -660,7 +660,7 @@ Then consume again; you should see a new event for the insert.
 
 ```bash
 cd /home/opc/oracle-xstream-cdc-poc
-./scripts/start-confluent-kraft.sh
+./admin-commands/start-confluent-kraft.sh
 ```
 
 **Why:** Starts Kafka, Schema Registry, and Kafka Connect in the correct order with built-in delays.
@@ -739,7 +739,7 @@ sleep 120
 
 ```bash
 cd /home/opc/oracle-xstream-cdc-poc
-./scripts/stop-confluent-kraft.sh
+./admin-commands/stop-confluent-kraft.sh
 ```
 
 **Why:** Gracefully stops Connect, Schema Registry, and Kafka.
@@ -865,7 +865,144 @@ LISTEN  0  128  *:8083  *:*  users:(("java",...))
 | 2 | Schema Registry | `pkill -f schema-registry` |
 | 3 | Kafka | `pkill -f kafka-server` |
 
-Or use: `./scripts/stop-confluent-kraft.sh`
+Or use: `./admin-commands/stop-confluent-kraft.sh`
+
+---
+
+# Part 6: Onboard New Tables to Existing CDC Pipeline
+
+**When:** You have an existing CDC pipeline and want to add more tables without recreating the outbound server.
+
+**Prerequisites:** XStream outbound already running (06-create-outbound-ordermgmt.sql completed); connector deployed and running.
+
+---
+
+## 6.1 Overview
+
+To add a new table to the CDC pipeline, you must:
+
+1. **Oracle DB:** Add supplemental logging for the new table
+2. **Oracle DB:** Grant SELECT on the table to `c##cfltuser`
+3. **Oracle DB:** Add the table to the XStream capture and outbound rules
+4. **Connector:** Update `table.include.list` and restart the connector
+
+---
+
+## 6.2 Step 1: Supplemental Logging (Oracle)
+
+Connect as SYSDBA to the PDB and enable supplemental logging for the new table:
+
+```sql
+ALTER SESSION SET CONTAINER = XSTRPDB;
+
+-- Replace SCHEMA.TABLE with your table (e.g. ORDERMGMT.NEW_ORDERS)
+ALTER TABLE ORDERMGMT.NEW_ORDERS ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+```
+
+---
+
+## 6.3 Step 2: Grant SELECT (Oracle)
+
+Grant SELECT to the connector user:
+
+```sql
+ALTER SESSION SET CONTAINER = XSTRPDB;
+
+GRANT SELECT ON ORDERMGMT.NEW_ORDERS TO c##cfltuser;
+```
+
+---
+
+## 6.4 Step 3: Add Table to XStream Outbound (Oracle)
+
+Connect as **c##xstrmadmin** (XStream admin) to the **CDB** (not PDB). Get the queue name first:
+
+```sql
+-- Get queue used by capture (run as SYSDBA)
+SELECT queue_owner, queue_name FROM dba_capture WHERE capture_name = 'CONFLUENT_XOUT1';
+-- Example output: SYS  SYS_XSTREAM$_XOUT_QUEUE
+```
+
+Then add the table to both capture and apply (outbound) rules:
+
+```sql
+-- Connect as: sqlplus c##xstrmadmin/<pwd>@//host:1521/DB0312_r8n_phx... as sysdba
+
+-- Replace SCHEMA.TABLE and queue_owner.queue_name with your values
+-- Example: ORDERMGMT.NEW_ORDERS and SYS.SYS_XSTREAM$_XOUT_QUEUE
+
+-- 1. Add to capture (so changes are captured from redo)
+DBMS_XSTREAM_ADM.ADD_TABLE_RULES(
+  table_name             => 'ORDERMGMT.NEW_ORDERS',
+  streams_type           => 'capture',
+  streams_name           => 'confluent_xout1',
+  queue_name             => 'SYS.SYS_XSTREAM$_XOUT_QUEUE',  -- from query above
+  include_dml            => TRUE,
+  include_ddl            => FALSE,
+  source_container_name  => 'XSTRPDB');
+
+-- 2. Add to apply/outbound (so changes are streamed to connector)
+DBMS_XSTREAM_ADM.ADD_TABLE_RULES(
+  table_name             => 'ORDERMGMT.NEW_ORDERS',
+  streams_type           => 'apply',
+  streams_name           => 'xout',
+  queue_name             => 'SYS.SYS_XSTREAM$_XOUT_QUEUE',  -- from query above
+  include_dml            => TRUE,
+  include_ddl            => FALSE,
+  source_container_name  => 'XSTRPDB');
+```
+
+**Note:** Queue name may vary (e.g. `SYS.SYS_XSTREAM$_XOUT_QUEUE` or `C##XSTRMADMIN.XOUT_QUEUE`). Always query `dba_capture` first.
+
+---
+
+## 6.5 Step 4: Update Connector Config (VM)
+
+1. Edit `xstream-connector/oracle-xstream-rac.json` and add the new table to `table.include.list`:
+
+```json
+"table.include.list": "ORDERMGMT\\.(REGIONS|COUNTRIES|LOCATIONS|WAREHOUSES|EMPLOYEES|PRODUCT_CATEGORIES|PRODUCTS|CUSTOMERS|CONTACTS|ORDERS|ORDER_ITEMS|INVENTORIES|NOTES|NEW_ORDERS)"
+```
+
+2. Update the connector config via REST API (no need to delete/recreate):
+
+```bash
+cd /home/opc/oracle-xstream-cdc-poc
+
+# Get current config, update table.include.list, then PUT
+curl -s http://localhost:8083/connectors/oracle-xstream-rac-connector/config | \
+  jq '. + {"table.include.list": "ORDERMGMT\\.(REGIONS|COUNTRIES|LOCATIONS|WAREHOUSES|EMPLOYEES|PRODUCT_CATEGORIES|PRODUCTS|CUSTOMERS|CONTACTS|ORDERS|ORDER_ITEMS|INVENTORIES|NOTES|NEW_ORDERS)"}' | \
+  jq 'del(.name)' | \
+  curl -s -X PUT -H "Content-Type: application/json" -d @- \
+  http://localhost:8083/connectors/oracle-xstream-rac-connector/config
+
+# Restart connector to pick up new tables
+curl -X POST "http://localhost:8083/connectors/oracle-xstream-rac-connector/restart?includeTasks=true"
+```
+
+3. Verify the new topic:
+
+```bash
+/opt/confluent/confluent/bin/kafka-topics --bootstrap-server localhost:9092 --list | grep NEW_ORDERS
+```
+
+---
+
+## 6.6 Snapshot Mode for New Tables
+
+- **`snapshot.mode=initial`:** Connector will run a full snapshot of the new table on restart (creates topic with existing data).
+- **`snapshot.mode=no_data`:** Connector will only stream changes; no initial snapshot. Use if you only need incremental changes.
+
+---
+
+## 6.7 Scripted Approach
+
+Use `oracle-database/11-add-table-to-cdc.sql` to add a table to XStream in one go (steps 6.2 and 6.3 must be run first):
+
+```bash
+# From VM or host with SQL*Plus, connect as c##xstrmadmin to CDB
+sqlplus c##xstrmadmin/<pwd>@//racdb-scan...:1521/DB0312_r8n_phx... as sysdba @11-add-table-to-cdc.sql "ORDERMGMT.NEW_ORDERS"
+```
 
 ---
 
@@ -922,7 +1059,7 @@ sleep 40
 cd /home/opc/oracle-xstream-cdc-poc
 /opt/confluent/confluent/bin/connect-distributed -daemon config/connect-distributed-kraft.properties
 sleep 120
-curl -X POST -H "Content-Type: application/json" --data @connector-config/oracle-xstream-rac.json http://localhost:8083/connectors
+curl -X POST -H "Content-Type: application/json" --data @xstream-connector/oracle-xstream-rac.json http://localhost:8083/connectors
 ```
 
 ### Fix 2: Reset connect-cluster group (clean slate)
@@ -936,13 +1073,13 @@ sleep 40
 cd /home/opc/oracle-xstream-cdc-poc
 /opt/confluent/confluent/bin/connect-distributed -daemon config/connect-distributed-kraft.properties
 sleep 120
-curl -X POST -H "Content-Type: application/json" --data @connector-config/oracle-xstream-rac.json http://localhost:8083/connectors
+curl -X POST -H "Content-Type: application/json" --data @xstream-connector/oracle-xstream-rac.json http://localhost:8083/connectors
 ```
 
 ### Fix 3: Use reset script
 
 ```bash
-./scripts/reset-connect-cluster.sh
+./admin-commands/reset-connect-cluster.sh
 ```
 
 ### Fix 4: Ensure Kafka is ready before Connect
@@ -958,7 +1095,7 @@ If this fails, wait 15–30 seconds after starting Kafka and retry.
 ### Fix 5: Use start script (includes Kafka readiness)
 
 ```bash
-./scripts/start-confluent-kraft.sh
+./admin-commands/start-confluent-kraft.sh
 ```
 
 The script waits for Kafka to be ready, uses the project Connect config, and waits 120 seconds before Connect is considered ready.

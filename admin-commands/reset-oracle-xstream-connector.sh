@@ -8,8 +8,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="${1:-$(dirname "$SCRIPT_DIR")}"
-CONNECTOR_JSON="$PROJECT_DIR/connector-config/oracle-xstream-rac.json"
+PROJECT_DIR="${1:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+CONNECTOR_JSON="$PROJECT_DIR/xstream-connector/oracle-xstream-rac.json"
 CONNECTOR_NAME="oracle-xstream-rac-connector"
 CONNECT_URL="${CONNECT_URL:-http://localhost:8083}"
 CONFLUENT_BIN="${CONFLUENT_HOME:-/opt/confluent/confluent}/bin"
@@ -44,7 +44,7 @@ echo "5. Creating connector (recovery mode)..."
 cd "$PROJECT_DIR"
 python3 -c "
 import json
-with open('connector-config/oracle-xstream-rac.json') as f:
+with open('xstream-connector/oracle-xstream-rac.json') as f:
     d = json.load(f)
 d['config']['snapshot.mode'] = 'recovery'
 print(json.dumps(d))
@@ -61,7 +61,7 @@ sleep 90
 echo "7. Updating to initial snapshot mode..."
 python3 -c "
 import json
-with open('connector-config/oracle-xstream-rac.json') as f:
+with open('xstream-connector/oracle-xstream-rac.json') as f:
     d = json.load(f)
 c = d['config'].copy()
 c['snapshot.mode'] = 'initial'

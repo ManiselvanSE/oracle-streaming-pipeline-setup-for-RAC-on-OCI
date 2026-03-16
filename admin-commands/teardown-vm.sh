@@ -11,9 +11,9 @@ set -e
 CONFLUENT_HOME="${CONFLUENT_HOME:-/opt/confluent/confluent}"
 CONNECT_URL="${CONNECT_URL:-http://localhost:8083}"
 CONNECTOR_NAME="oracle-xstream-rac-connector"
-KRAFT_LOG_DIR="/tmp/kraft-combined-logs"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="${1:-$(dirname "$SCRIPT_DIR")}"
+PROJECT_DIR="${1:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+KRAFT_LOG_DIR="$PROJECT_DIR/data/kafka"
 
 echo "=== Oracle XStream CDC - VM Teardown ==="
 echo ""
@@ -30,6 +30,7 @@ sleep 2
 
 # 3. Stop Confluent services
 echo "3. Stopping Confluent Platform..."
+pkill -f "connect-standalone" 2>/dev/null || true
 pkill -f "connect-distributed" 2>/dev/null || true
 pkill -f "schema-registry-start" 2>/dev/null || true
 pkill -f "kafka-server-start" 2>/dev/null || true
@@ -65,5 +66,5 @@ echo "Kafka data and connector removed. Confluent is stopped."
 echo ""
 echo "To set up from scratch:"
 echo "  1. Run DB teardown (10-teardown-xstream-outbound.sql) if needed"
-echo "  2. ./scripts/start-confluent-kraft.sh"
-echo "  3. Deploy connector: curl -X POST -H 'Content-Type: application/json' --data @connector-config/oracle-xstream-rac.json $CONNECT_URL/connectors"
+echo "  2. ./admin-commands/start-confluent-kraft.sh"
+echo "  3. Deploy connector: curl -X POST -H 'Content-Type: application/json' --data @xstream-connector/oracle-xstream-rac.json $CONNECT_URL/connectors"

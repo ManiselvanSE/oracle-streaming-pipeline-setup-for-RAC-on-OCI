@@ -1,0 +1,12 @@
+# Prometheus config for Kafka/CDC monitoring
+# Scrapes Kafka Exporter metrics. Used with Grafana dashboards.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'kafka-exporter'
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+    metrics_path: /metrics

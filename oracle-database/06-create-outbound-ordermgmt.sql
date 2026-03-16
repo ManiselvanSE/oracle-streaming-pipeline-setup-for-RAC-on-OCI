@@ -23,7 +23,8 @@ BEGIN
   tables(11) := 'ORDERMGMT.ORDER_ITEMS';
   tables(12) := 'ORDERMGMT.INVENTORIES';
   tables(13) := 'ORDERMGMT.NOTES';
-  tables(14) := NULL;
+  tables(14) := 'ORDERMGMT.MTX_TRANSACTION_ITEMS';
+  tables(15) := NULL;
   schemas(1) := 'ORDERMGMT';
 
   DBMS_XSTREAM_ADM.CREATE_OUTBOUND(

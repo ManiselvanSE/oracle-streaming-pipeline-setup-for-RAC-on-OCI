@@ -1,8 +1,16 @@
 # Connector Configuration
 
-## oracle-xstream-rac.json (main)
+## Standalone mode (default)
 
-Primary connector config for Oracle XStream CDC on RAC. Aligned with [ora0600/confluent-new-cdc-connector](https://github.com/ora0600/confluent-new-cdc-connector) best practices.
+This project uses **Connect standalone mode** to avoid "ensuring membership" delays on single-broker setups.
+
+- **oracle-xstream-rac-connector.properties** – Connector config for standalone. Copy from `oracle-xstream-rac-connector.properties.example` and set `database.password`, `database.service.name`.
+- Connector starts with Connect process – no REST deploy step.
+- **database.service.name**: In `.properties` files, escape `$` as `\\$` (e.g. `SYS\\$SYS.Q\\$_XOUT_65...`) to avoid "Illegal group reference" from Java regex.
+
+## oracle-xstream-rac.json (distributed mode / REST API)
+
+For distributed mode or REST-based deploy. Aligned with [ora0600/confluent-new-cdc-connector](https://github.com/ora0600/confluent-new-cdc-connector) best practices.
 
 ### Properties added from ora0600 demo
 

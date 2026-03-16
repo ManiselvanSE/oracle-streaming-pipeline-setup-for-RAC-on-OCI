@@ -11,8 +11,9 @@ export LD_LIBRARY_PATH="${LD_LIBRARY_PATH:-/opt/oracle/instantclient/instantclie
 CONFLUENT_HOME="${CONFLUENT_HOME:-/opt/confluent/confluent}"
 KAFKA_HOME="$CONFLUENT_HOME"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="${1:-$(dirname "$SCRIPT_DIR")}"
-KRAFT_LOG_DIR="/tmp/kraft-combined-logs"
+PROJECT_DIR="${1:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+# Kafka data dir - must match log.dirs in server-kraft.properties
+KRAFT_LOG_DIR="${KRAFT_LOG_DIR:-$PROJECT_DIR/data/kafka}"
 mkdir -p "$KRAFT_LOG_DIR"
 
 # Ensure Confluent logs dir exists and is writable (installed with sudo = root owned)
@@ -73,21 +74,35 @@ echo "Starting Schema Registry..."
 "$KAFKA_HOME/bin/schema-registry-start" -daemon "$SCHEMA_KRAFT"
 sleep 10
 
-# 4. Start Kafka Connect (use project config with longer timeouts)
-CONNECT_CFG="$PROJECT_DIR/config/connect-distributed-kraft.properties"
-if [ ! -f "$CONNECT_CFG" ]; then
-  CONNECT_CFG="$KAFKA_HOME/etc/kafka/connect-distributed.properties"
+# 3b. Extra delay for Kafka to stabilize (avoids Connect "Timeout creating topic" on slow VMs)
+sleep 45
+
+# 4. Start Kafka Connect (standalone mode - no "ensuring membership" delays)
+WORKER_CFG="$PROJECT_DIR/config/connect-standalone-kraft.properties"
+CONNECTOR_CFG="$PROJECT_DIR/xstream-connector/oracle-xstream-rac-connector.properties"
+if [ ! -f "$WORKER_CFG" ]; then
+  echo "Error: $WORKER_CFG not found."
+  exit 1
 fi
-echo "Starting Kafka Connect (config: $CONNECT_CFG)..."
-"$KAFKA_HOME/bin/connect-distributed" -daemon "$CONNECT_CFG"
-echo "Waiting 150s for Connect to join cluster (Herder needs ~110s on slow VMs)..."
-sleep 150
+if [ ! -f "$CONNECTOR_CFG" ]; then
+  echo "Error: $CONNECTOR_CFG not found. Copy from oracle-xstream-rac-connector.properties.example"
+  exit 1
+fi
+CONNECT_STANDALONE=""
+for cmd in connect-standalone connect-standalone.sh; do
+  [ -x "$KAFKA_HOME/bin/$cmd" ] && CONNECT_STANDALONE="$KAFKA_HOME/bin/$cmd" && break
+done
+[ -z "$CONNECT_STANDALONE" ] && { echo "Error: connect-standalone not found."; exit 1; }
+echo "Starting Kafka Connect (standalone with Oracle XStream connector)..."
+nohup "$CONNECT_STANDALONE" "$WORKER_CFG" "$CONNECTOR_CFG" > /tmp/connect-standalone.log 2>&1 &
+echo "Connect standalone started. Log: /tmp/connect-standalone.log"
+echo "Waiting 30s for Connect to start..."
+sleep 30
 
 echo ""
-echo "=== Confluent Platform started (KRaft mode) ==="
+echo "=== Confluent Platform started (KRaft mode, Connect standalone) ==="
 echo "Kafka: localhost:9092"
 echo "Schema Registry: http://localhost:8081"
-echo "Kafka Connect: http://localhost:8083"
+echo "Kafka Connect: http://localhost:8083 (connector auto-started)"
 echo ""
-echo "Deploy connector:"
-echo "  curl -X POST -H 'Content-Type: application/json' --data @connector-config/oracle-xstream-rac.json http://localhost:8083/connectors"
+echo "Check status: curl -s http://localhost:8083/connectors/oracle-xstream-rac-connector/status | jq ."

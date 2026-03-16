@@ -1,5 +1,6 @@
 # Secrets - do not commit
-connector-config/oracle-xstream-rac.json
+xstream-connector/oracle-xstream-rac.json
+xstream-connector/oracle-xstream-rac-connector.properties
 
 # Logs
 *.log
@@ -8,6 +9,7 @@ logs/
 # Confluent / Kafka data (if run locally)
 /var/lib/kafka-data/
 /tmp/kraft-combined-logs/
+oracle-xstream-cdc-poc/data/
 
 # IDE
 .idea/
