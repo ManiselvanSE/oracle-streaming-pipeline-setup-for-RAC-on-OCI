@@ -1,147 +1,94 @@
-# Oracle CDC XStream Connector Setup in OCI RAC - Troubleshooting Reference
+# Oracle CDC XStream Connector – Troubleshooting (Docker)
 
 ## Only REGIONS Topic (Other Tables Not Created)
 
-**Symptom:** Only `racdb.XSTRPDB.ORDERMGMT.REGIONS` topic exists; other 12 ORDERMGMT tables have no topics.
-
-**Root cause:** Connector not scoped to PDB for snapshot; `capturing: []` in logs.
+**Symptom:** Only `racdb.XSTRPDB.ORDERMGMT.REGIONS` topic exists; other tables have no topics.
 
 **Fix:** Add `database.pdb.name` to connector config:
 ```json
 "database.pdb.name": "XSTRPDB",
 ```
 
-**Additional config:**
-- `table.include.list`: Use regex format, e.g. `ORDERMGMT\\.(REGIONS|COUNTRIES|LOCATIONS|...)`
-- Run full reset: `./admin-commands/reset-oracle-xstream-connector.sh`
+Use regex for `table.include.list`: `ORDERMGMT\\.(REGIONS|COUNTRIES|LOCATIONS|...)`
 
 ---
 
-## Connect Standalone Mode (No "Ensuring Membership")
+## Connection Reset on Deploy
 
-This project uses **Connect standalone mode** by default. The connector starts with the Connect process – no consumer group, no "ensuring membership" delays. Use `./admin-commands/start-confluent-standalone.sh` or `./admin-commands/start-confluent-kraft.sh`.
-
----
-
-## Connect Won't Start After Manual Kill (Connection Refused on 8083)
-
-**Symptom:** `curl localhost:8083` returns "Connection refused". Connect was working until you killed it with `kill -9` or `pkill`.
-
-**Cause:** Connect process was terminated; it doesn't auto-restart.
-
-**Fix (standalone mode):** Use the restart script (Kafka must already be running). Connector starts with Connect – no deploy step.
-
-```bash
-cd /home/opc/oracle-xstream-cdc-poc
-chmod +x admin-commands/restart-connect-only.sh
-./admin-commands/restart-connect-only.sh
-```
-
-**Connect crashes with "Timeout expired while trying to create topic(s)":** Fixes:
-1. Ensure Kafka is healthy: `kafka-broker-api-versions --bootstrap-server localhost:9092`
-2. Wait 60+ seconds after stop before starting Connect
-
-**Alternative – full restart:** If Connect still won't start, restart the whole stack:
-
-```bash
-./admin-commands/stop-confluent-kraft.sh
-sleep 15
-./admin-commands/start-confluent-standalone.sh
-```
-
----
-
-## Deploy Returns 404 Not Found for /connectors
-
-**Symptom:** `curl -X POST ... http://localhost:8083/connectors` returns HTML with "404 Not Found" for URI /connectors.
+**Symptom:** `curl -X POST ... http://localhost:8083/connectors` returns "Connection reset by peer".
 
 **Causes:**
-1. **Wrong service on 8083** – Another process (e.g. Schema Registry) bound to 8083. Check: `lsof -i:8083`
-2. **Connect not fully started** – Polling reported "ready" too early. The updated `start-confluent-standalone.sh` now waits for a valid JSON array from GET /connectors.
-3. **Missing Accept header** – Connect REST API expects `Accept: application/json`. The script adds this.
-
-**Fix:**
-1. Copy the updated `start-confluent-standalone.sh` to the VM and run it.
-2. Verify Connect is on 8083: `curl -s -H "Accept: application/json" http://localhost:8083/` should return `{"version":"...","commit":"...","kafka_cluster_id":"..."}`.
-3. If you get HTML instead, stop all services and restart in order: Kafka → Schema Registry (8081) → Connect (8083).
+1. Connect not fully ready – wait 60+ seconds after cluster start
+2. Oracle OCI driver missing – ensure `ojdbc8.jar` and `xstreams.jar` in connector plugin lib (connect-entrypoint.sh copies from Instant Client)
+3. `libnsl.so.1` missing – Dockerfile creates symlink; rebuild Connect image if needed
 
 ---
 
-## All CDC Topics Empty (0 Messages)
+## No Suitable Driver (jdbc:oracle:oci)
 
-**Symptom:** `kafka-console-consumer` returns 0 messages for all topics (REGIONS, MTX_TRANSACTION_ITEMS, heartbeat, etc.).
+**Symptom:** "No suitable driver found for jdbc:oracle:oci"
 
-**Possible causes:**
-1. **UNKNOWN_TOPIC_OR_PARTITION race** – Connector produced before topics existed; messages may have been lost. The start script now pre-creates CDC topics before Connect starts.
-2. **Kafka data lost on reboot** – If using `/tmp` for log.dirs, VM reboot clears it. This project now uses `/home/opc/oracle-xstream-cdc-poc/data/kafka` for persistence.
-3. **Stale Connect offset** – Standalone offset file has old position; connector thinks it's caught up but never produced.
-4. **Producer not flushing** – Connector reads from Oracle but Kafka producer fails (check Connect logs for errors).
-
-**Fix – Clean restart with fresh snapshot:**
-
+**Fix:** Oracle JARs must be in connector plugin lib. The `connect-entrypoint.sh` copies `ojdbc8.jar` and `xstreams.jar` from mounted Instant Client. Verify:
 ```bash
-# 1. Stop everything
-./admin-commands/stop-confluent-kraft.sh
-sleep 10
-
-# 2. Clear Connect offset (forces fresh snapshot on next start)
-rm -f /home/opc/oracle-xstream-cdc-poc/data/connect-standalone.offsets 2>/dev/null || rm -f /tmp/connect-standalone.offsets
-
-# 3. Optional: clear Kafka data to force full re-snapshot
-# rm -rf /home/opc/oracle-xstream-cdc-poc/data/kafka/*
-
-# 4. Start fresh
-./admin-commands/start-confluent-standalone.sh
-```
-
-Then wait 2–5 minutes for initial snapshot. Check Connect log:
-```bash
-tail -f /tmp/connect-standalone.log
-```
-Look for "Snapshot completed" or "records sent". Then consume:
-```bash
-/opt/confluent/confluent/bin/kafka-console-consumer --bootstrap-server localhost:9092 --topic racdb.XSTRPDB.ORDERMGMT.REGIONS --from-beginning --max-messages 3
-```
-
-**Verify Kafka works:** Create topic, produce, then consume (run separately):
-```bash
-# Create topic first (avoids UNKNOWN_TOPIC_OR_PARTITION)
-/opt/confluent/confluent/bin/kafka-topics --bootstrap-server localhost:9092 --create --topic test-topic --partitions 1 --replication-factor 1
-
-# Produce
-echo '{"test":1}' | /opt/confluent/confluent/bin/kafka-console-producer --bootstrap-server localhost:9092 --topic test-topic
-
-# Consume (separate command)
-/opt/confluent/confluent/bin/kafka-console-consumer --bootstrap-server localhost:9092 --topic test-topic --from-beginning --max-messages 1
+docker exec connect ls /usr/share/confluent-hub-components/confluentinc-kafka-connect-oracle-xstream-cdc-source/lib/ | grep -E 'ojdbc|xstreams'
 ```
 
 ---
 
-## XStream Service Name Changes After Outbound Recreate
+## libnsl.so.1 Cannot Open Shared Object
 
-**Symptom:** ORA-12514 or connector fails to connect after dropping/recreating outbound.
+**Symptom:** `UnsatisfiedLinkError: libnsl.so.1: cannot open shared object file`
 
-**Cause:** XStream service ID changes (e.g. `Q$_XOUT_5` → `Q$_XOUT_65`).
+**Fix:** Rebuild Connect image – Dockerfile installs libaio and creates libnsl.so.1 symlink.
+
+---
+
+## Connect Timeout Creating Topics
+
+**Symptom:** "Timeout expired while trying to create topic(s)" for `_connect-offsets`.
+
+**Cause:** Connect uses replication factor 3 for internal topics; only 2 brokers may be up (e.g. kafka1 down).
+
+**Fix:** `docker-compose.yml` uses `CONNECT_*_REPLICATION_FACTOR: 2` for compatibility. Ensure at least 2 brokers are healthy.
+
+---
+
+## Connection to Node 1/3 Could Not Be Established
+
+**Symptom:** Warnings when running `kafka-topics` or `kafka-console-consumer` with `localhost:9094`.
+
+**Cause:** From inside a container, `localhost` refers to the container itself. Brokers advertise `localhost:9092`, etc., which are unreachable from other containers.
+
+**Fix:** Use internal bootstrap: `kafka1:29092,kafka2:29092,kafka3:29092`
+```bash
+docker exec kafka2 kafka-console-consumer \
+  --bootstrap-server kafka1:29092,kafka2:29092,kafka3:29092 \
+  --topic racdb.ORDERMGMT.MTX_TRANSACTION_ITEMS --from-beginning --max-messages 5
+```
+
+---
+
+## XStream Service Name Changes
+
+**Symptom:** ORA-12514 or connector fails after dropping/recreating outbound.
 
 **Fix:** Get current service name:
 ```sql
 SELECT network_name FROM gv$SERVICES WHERE NAME LIKE '%XOUT%' AND ROWNUM=1;
 ```
-Update `database.service.name` in connector config (escape `$` as `\\$`).
+Update `database.service.name` in connector config. Escape `$` as `\\$`.
 
 ---
 
 ## Schema History Topic Missing
 
-**Symptom:** "The db history topic is missing. You may attempt to recover it by reconfiguring the connector to recovery."
+**Symptom:** "The db history topic is missing"
 
-**Fix:** Use recovery mode first, then switch to initial:
+**Fix:**
 1. Delete connector
-2. Create connector with `snapshot.mode: recovery`
+2. Create with `snapshot.mode: recovery`
 3. Wait 90s
-4. Update config to `snapshot.mode: initial`, restart
-
-Or run `./admin-commands/reset-oracle-xstream-connector.sh`.
+4. Update to `snapshot.mode: initial`, restart
 
 ---
 
@@ -149,7 +96,7 @@ Or run `./admin-commands/reset-oracle-xstream-connector.sh`.
 
 **Symptom:** "The capture process 'CONFLUENT_XOUT1' is in an 'ABORTED' status"
 
-**Fix:** Stop and restart capture:
+**Fix:** Stop and restart capture (run on Oracle as SYSDBA):
 ```sql
 BEGIN DBMS_CAPTURE_ADM.STOP_CAPTURE(capture_name => 'CONFLUENT_XOUT1'); END;
 /
@@ -160,43 +107,14 @@ BEGIN DBMS_CAPTURE_ADM.START_CAPTURE(capture_name => 'CONFLUENT_XOUT1'); END;
 
 ---
 
-## SSH Connection Issues
+## Connector in FAILED State
 
-**"Permission denied (publickey)"**
-- Use private key (`.key`), not public (`.pub`)
-- `chmod 600 ssh-key.key`
-- OCI Oracle Linux default user: `opc`
+**Fix:** Restart connector:
+```bash
+curl -X POST http://localhost:8083/connectors/oracle-xstream-rac-connector/restart
+```
 
-**"Connection timed out"**
-- Check Security List allows SSH (port 22) from your IP
-- Verify VM has public IP
-
----
-
-## RAC Database Connectivity
-
-**Port 1521 unreachable from VM**
-- Add Security List ingress: Source=10.0.0.0/24, Dest Port=1521, Protocol=TCP
-
-**SCAN hostname not resolving**
-- Add to VM `/etc/hosts`:
-  ```
-  <rac-scan-ip> racdb-scan.<your-vcn>.oraclevcn.com
-  ```
-
----
-
-## Connector Issues
-
-**ORA-01017: invalid username/password**
-- Verify `c##cfltuser` password in connector config
-- Ensure `ALTER_OUTBOUND` set `connect_user => 'c##cfltuser'`
-
-**Tables must match**
-- `table.include.list` must match tables in XStream outbound (CREATE_OUTBOUND)
-
-**Oracle Instant Client**
-- Set before starting Connect: `export LD_LIBRARY_PATH=/opt/oracle/instantclient/instantclient_19_30:$LD_LIBRARY_PATH`
+Check logs: `docker logs connect --tail 100`
 
 ---
 

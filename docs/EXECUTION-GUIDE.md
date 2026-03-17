@@ -2,6 +2,8 @@
 
 This document records **all commands and expected outputs** in execution order. Use it as a reference for anyone setting up or troubleshooting the setup.
 
+> **Primary deployment:** This project uses the **Docker 3-broker cluster**. See [IMPLEMENTATION-GUIDE.md](IMPLEMENTATION-GUIDE.md) for the recommended setup. Parts 1–5 (Oracle Database) apply to both Docker and bare-metal. Parts 6+ document legacy bare-metal Confluent setup for reference.
+
 ---
 
 ## Overview

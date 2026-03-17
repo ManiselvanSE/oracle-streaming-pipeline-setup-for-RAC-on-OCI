@@ -2,7 +2,7 @@
 
 A step-by-step script for live demonstrations showing data flow from **Oracle** → **XStream** → **Kafka** → **Consumer**.
 
-**Prerequisites:** Oracle RAC configured with XStream, Confluent Platform running, connector configured and started.
+**Prerequisites:** Oracle RAC configured with XStream, Docker cluster running, connector deployed.
 
 ---
 
@@ -119,7 +119,7 @@ tail -20 /tmp/connect-standalone.log | grep -E 'MTX_TRANSACTION|records sent|str
 ### 5a. List CDC topics
 
 ```bash
-/opt/confluent/confluent/bin/kafka-topics --bootstrap-server localhost:9092 --list | grep -E 'MTX|racdb'
+docker exec kafka2 kafka-topics --bootstrap-server kafka1:29092,kafka2:29092,kafka3:29092 --list | grep -E 'MTX|racdb'
 ```
 
 **Expected:** Topics like `racdb.ORDERMGMT.MTX_TRANSACTION_ITEMS` or `racdb.XSTRPDB.ORDERMGMT.MTX_TRANSACTION_ITEMS`
@@ -127,19 +127,19 @@ tail -20 /tmp/connect-standalone.log | grep -E 'MTX_TRANSACTION|records sent|str
 ### 5b. Consume messages from MTX_TRANSACTION_ITEMS topic
 
 ```bash
-/opt/confluent/confluent/bin/kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+docker exec kafka2 kafka-console-consumer \
+  --bootstrap-server kafka1:29092,kafka2:29092,kafka3:29092 \
   --topic racdb.ORDERMGMT.MTX_TRANSACTION_ITEMS \
-  --partition 0 --offset 0 \
+  --from-beginning \
   --max-messages 5
 ```
 
 **If topic uses XSTRPDB prefix:**
 ```bash
-/opt/confluent/confluent/bin/kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+docker exec kafka2 kafka-console-consumer \
+  --bootstrap-server kafka1:29092,kafka2:29092,kafka3:29092 \
   --topic racdb.XSTRPDB.ORDERMGMT.MTX_TRANSACTION_ITEMS \
-  --partition 0 --offset 0 \
+  --from-beginning \
   --max-messages 5
 ```
 
@@ -278,7 +278,7 @@ ssh -i key.pem -L 3000:localhost:3000 -L 8083:localhost:8083 -L 9090:localhost:9
 |-------|-----------|
 | No messages in Kafka | Wait 10–30 seconds after INSERT; XStream has slight delay |
 | Topic not found | Try `racdb.XSTRPDB.ORDERMGMT.MTX_TRANSACTION_ITEMS` |
-| Connector not RUNNING | `./admin-commands/restart-connect-only.sh` |
+| Connector not RUNNING | `curl -X POST http://localhost:8083/connectors/oracle-xstream-rac-connector/restart` |
 | Oracle connection refused | Check Security List allows 1521 from VM |
 
 ---

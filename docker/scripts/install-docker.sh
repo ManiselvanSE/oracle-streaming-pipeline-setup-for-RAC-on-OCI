@@ -1,7 +1,7 @@
 #!/bin/bash
 # =============================================================================
 # Install Docker on Oracle Linux 9
-# Run with: sudo ./install-docker.sh
+# Run with: sudo ./docker/scripts/install-docker.sh
 # =============================================================================
 
 set -e
