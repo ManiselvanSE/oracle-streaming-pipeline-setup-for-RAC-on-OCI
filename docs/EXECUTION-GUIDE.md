@@ -483,7 +483,7 @@ Starting Kafka (KRaft)...
 Waiting for Kafka broker...
 Kafka ready.
 Starting Schema Registry...
-Starting Kafka Connect (config: .../config/connect-distributed-kraft.properties)...
+Starting Kafka Connect (config: .../docs/optional/connect-distributed-kraft.properties)...
 Waiting 120s for Connect to join cluster (avoids 'ensuring membership' timeout)...
 
 === Confluent Platform started (KRaft mode) ===
@@ -492,7 +492,7 @@ Schema Registry: http://localhost:8081
 Kafka Connect: http://localhost:8083
 ```
 
-**Check:** No `Permission denied` or `kafka-storage: No such file or directory`. The script uses `config/connect-distributed-kraft.properties` (longer timeouts) to avoid "ensuring membership" timeouts.
+**Check:** No `Permission denied` or `kafka-storage: No such file or directory`. The script uses `docs/optional/connect-distributed-kraft.properties` (longer timeouts) to avoid "ensuring membership" timeouts.
 
 ---
 
@@ -718,7 +718,7 @@ cd /home/opc/oracle-xstream-cdc-poc
 # Ensure Kafka is ready first
 /opt/confluent/confluent/bin/kafka-broker-api-versions --bootstrap-server localhost:9092 | head -1
 
-/opt/confluent/confluent/bin/connect-distributed -daemon config/connect-distributed-kraft.properties
+/opt/confluent/confluent/bin/connect-distributed -daemon docs/optional/connect-distributed-kraft.properties
 sleep 120
 ```
 
@@ -852,7 +852,7 @@ LISTEN  0  128  *:8083  *:*  users:(("java",...))
 |-------|-----------|---------|------------------|
 | 1 | Kafka | `kafka-server-start -daemon config/server-kraft.properties` | Until `kafka-broker-api-versions` succeeds |
 | 2 | Schema Registry | `schema-registry-start -daemon config/schema-registry-kraft.properties` | 10 sec |
-| 3 | Connect | `connect-distributed -daemon config/connect-distributed-kraft.properties` | 120 sec |
+| 3 | Connect | `connect-distributed -daemon docs/optional/connect-distributed-kraft.properties` | 120 sec |
 | 4 | Connector | `curl -X POST .../connectors` | — |
 
 ---
@@ -1057,7 +1057,7 @@ After stopping Connect, wait at least 40 seconds before starting again (must exc
 pkill -f connect-distributed
 sleep 40
 cd /home/opc/oracle-xstream-cdc-poc
-/opt/confluent/confluent/bin/connect-distributed -daemon config/connect-distributed-kraft.properties
+/opt/confluent/confluent/bin/connect-distributed -daemon docs/optional/connect-distributed-kraft.properties
 sleep 120
 curl -X POST -H "Content-Type: application/json" --data @xstream-connector/oracle-xstream-rac.json http://localhost:8083/connectors
 ```
@@ -1071,7 +1071,7 @@ pkill -f connect-distributed
 sleep 40
 /opt/confluent/confluent/bin/kafka-consumer-groups --bootstrap-server localhost:9092 --group connect-cluster --delete
 cd /home/opc/oracle-xstream-cdc-poc
-/opt/confluent/confluent/bin/connect-distributed -daemon config/connect-distributed-kraft.properties
+/opt/confluent/confluent/bin/connect-distributed -daemon docs/optional/connect-distributed-kraft.properties
 sleep 120
 curl -X POST -H "Content-Type: application/json" --data @xstream-connector/oracle-xstream-rac.json http://localhost:8083/connectors
 ```

@@ -2,6 +2,8 @@
 
 A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent Oracle XStream CDC Connector**, streaming changes from **Oracle RAC** to **Apache Kafka** on OCI.
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
 ---
 
 ## Table of Contents
@@ -55,7 +57,16 @@ A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent O
 
 **Detailed guides:**
 - [docs/EXECUTION-GUIDE.md](docs/EXECUTION-GUIDE.md) – Full setup commands
+- [docs/DEMO.md](docs/DEMO.md) – Step-by-step live demo script
 - [docs/EXECUTION-GUIDE.md#part-6-onboard-new-tables](docs/EXECUTION-GUIDE.md#part-6-onboard-new-tables-to-existing-cdc-pipeline) – Add new tables to CDC
+
+### Demo Flow (5 steps)
+
+1. **Oracle** – Run SQL scripts 01→06 in `oracle-database/` to enable XStream and create outbound server  
+2. **VM** – Run `setup-vm.sh` to install Confluent, Oracle client, connector  
+3. **Connector** – Copy `oracle-xstream-rac-connector.properties.example` → `oracle-xstream-rac-connector.properties` and set credentials  
+4. **Start** – Run `start-confluent-standalone.sh`  
+5. **Verify** – Insert into `ORDERMGMT.MTX_TRANSACTION_ITEMS`, consume from Kafka topic `racdb.ORDERMGMT.MTX_TRANSACTION_ITEMS`
 
 ---
 
@@ -456,7 +467,10 @@ curl -s http://localhost:9308/metrics | head -5
 ```
 oracle-xstream-cdc-poc/
 ├── README.md
-├── config/                      # Kafka, Schema Registry, Connect configs
+├── config/                      # Kafka, Schema Registry, Connect (standalone)
+│   ├── server-kraft.properties
+│   ├── schema-registry-kraft.properties
+│   └── connect-standalone-kraft.properties
 ├── data/                        # Kafka logs, Connect offsets (persistent)
 ├── oracle-database/             # SQL scripts (run 01→14 in order)
 ├── xstream-connector/           # Connector config (properties, examples)
@@ -466,21 +480,29 @@ oracle-xstream-cdc-poc/
 │   ├── stop-confluent-kraft.sh
 │   ├── restart-connect-only.sh
 │   └── ...
-├── monitoring/                  # Grafana, Prometheus, Kafka Exporter
+├── monitoring/                  # Optional: Grafana, Prometheus, Kafka Exporter
 │   ├── config/prometheus.yml
 │   ├── scripts/
 │   │   ├── install-grafana-docker.sh
 │   │   └── install-prometheus-kafka-exporter.sh
 │   └── docs/
-│       ├── GRAFANA-SETUP.md
-│       └── MONITORING-SETUP.md
 ├── troubleshooting/             # Troubleshooting guide
 │   └── TROUBLESHOOTING.md
 ├── screenshots/                 # Add screenshots here
 └── docs/
-    ├── EXECUTION-GUIDE.md
-    └── DEMO.md                  # Step-by-step live demo script
+    ├── EXECUTION-GUIDE.md       # Full setup commands
+    ├── DEMO.md                  # Step-by-step live demo script
+    └── optional/                # Optional configs (e.g. distributed Connect)
 ```
+
+---
+
+## What's Optional
+
+| Component | Purpose |
+|-----------|---------|
+| **monitoring/** | Grafana, Prometheus, Kafka Exporter – for throughput/lag dashboards. Not required for core CDC demo. |
+| **docs/optional/** | Distributed Connect config – use if you prefer distributed mode instead of standalone. |
 
 ---
 
@@ -500,9 +522,11 @@ oracle-xstream-cdc-poc/
 
 ---
 
-## License Note
+## License
 
-The Oracle XStream CDC connector is a **Confluent Premium connector** requiring an Enterprise subscription. A 30-day trial is available for POC evaluation.
+This project (scripts, configs, docs) is licensed under the [Apache License 2.0](LICENSE).
+
+**Note:** The Oracle XStream CDC connector is a **Confluent Premium connector** requiring an Enterprise subscription. A 30-day trial is available for POC evaluation.
 
 ---
 

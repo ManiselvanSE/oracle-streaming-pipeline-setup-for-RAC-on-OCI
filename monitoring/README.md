@@ -1,6 +1,6 @@
-# Monitoring
+# Monitoring (Optional)
 
-Grafana, Prometheus, and Kafka Exporter for throughput and lag monitoring.
+Grafana, Prometheus, and Kafka Exporter for throughput and lag monitoring. **Not required** for the core CDC demo.
 
 ## Quick Start
 
