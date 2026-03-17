@@ -56,6 +56,7 @@ A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent O
 - [docs/IMPLEMENTATION-GUIDE.md](docs/IMPLEMENTATION-GUIDE.md) – **Complete end-to-end implementation guide**
 - [docs/EXECUTION-GUIDE.md](docs/EXECUTION-GUIDE.md) – Full setup commands
 - [docs/DEMO.md](docs/DEMO.md) – Step-by-step live demo script
+- [monitoring/README.md](monitoring/README.md) – **Monitoring setup** (Grafana, Prometheus, JMX exporters)
 
 ### Demo Flow (5 steps)
 
@@ -87,6 +88,11 @@ oracle-xstream-cdc-poc/
 │       └── install-docker.sh
 ├── oracle-database/                # SQL scripts (run 01→14 in order)
 ├── xstream-connector/              # Connector config (oracle-xstream-rac-docker.json)
+├── monitoring/                    # Monitoring stack (optional)
+│   ├── README.md                  # Full monitoring setup guide
+│   ├── jmx/                       # JMX Exporter configs
+│   ├── prometheus/                # Prometheus config + alerts
+│   └── grafana/                   # Dashboards + provisioning
 ├── troubleshooting/
 │   └── TROUBLESHOOTING.md
 ├── screenshots/

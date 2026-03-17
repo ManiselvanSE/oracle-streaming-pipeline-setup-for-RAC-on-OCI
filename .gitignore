@@ -1,5 +1,6 @@
 # Secrets - do not commit
 docker/.env
+monitoring/agents/
 xstream-connector/oracle-xstream-rac.json
 xstream-connector/oracle-xstream-rac-docker.json
 xstream-connector/oracle-xstream-rac-connector.properties

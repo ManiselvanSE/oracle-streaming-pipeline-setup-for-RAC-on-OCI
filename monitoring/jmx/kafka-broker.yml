@@ -1,0 +1,53 @@
+# JMX Exporter config for Kafka brokers
+# Exposes Kafka broker metrics for Prometheus scraping
+# Ref: https://github.com/prometheus/jmx_exporter
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+whitelistObjectNames:
+  - "kafka.server:*"
+  - "kafka.network:*"
+  - "kafka.log:*"
+  - "kafka.controller:*"
+  - "java.lang:*"
+rules:
+  - pattern: kafka.server<type=(.+), name=(.+), clientId=(.+), topic=(.+), partition=(.*)><>Value
+    name: kafka_server_$1_$2
+    labels:
+      clientId: "$3"
+      topic: "$4"
+      partition: "$5"
+    type: GAUGE
+  - pattern: kafka.server<type=(.+), name=(.+), clientId=(.+), topic=(.+), partition=(.*)><>Count
+    name: kafka_server_$1_$2
+    labels:
+      clientId: "$3"
+      topic: "$4"
+      partition: "$5"
+    type: COUNTER
+  - pattern: kafka.server<type=(.+), name=(.+)><>Value
+    name: kafka_server_$1_$2
+    type: GAUGE
+  - pattern: kafka.server<type=(.+), name=(.+)><>Count
+    name: kafka_server_$1_$2
+    type: COUNTER
+  - pattern: kafka.network<type=(.+), name=(.+)><>Value
+    name: kafka_network_$1_$2
+    type: GAUGE
+  - pattern: kafka.log<type=(.+), name=(.+), topic=(.+), partition=(.*)><>Value
+    name: kafka_log_$1_$2
+    labels:
+      topic: "$3"
+      partition: "$4"
+    type: GAUGE
+  - pattern: kafka.controller<type=(.+), name=(.+)><>Value
+    name: kafka_controller_$1_$2
+    type: GAUGE
+  - pattern: java.lang<type=Memory><>HeapMemoryUsage\.(used|committed|max)
+    name: jvm_memory_heap_$1
+    type: GAUGE
+  - pattern: java.lang<type=OperatingSystem><>((ProcessCpuTime|SystemCpuLoad|ProcessCpuLoad))
+    name: jvm_os_$1
+    type: GAUGE
+  - pattern: java.lang<type=Threading><>ThreadCount
+    name: jvm_threads_count
+    type: GAUGE

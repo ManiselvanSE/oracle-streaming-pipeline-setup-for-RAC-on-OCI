@@ -1,0 +1,50 @@
+# JMX Exporter config for Kafka Connect
+# Exposes Connect worker and connector metrics for Prometheus
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+whitelistObjectNames:
+  - "kafka.connect:*"
+  - "kafka.consumer:*"
+  - "kafka.producer:*"
+  - "java.lang:*"
+rules:
+  - pattern: kafka.connect<type=(.+), name=(.+), connector=(.+), task=(.*)><>Value
+    name: kafka_connect_$1_$2
+    labels:
+      connector: "$3"
+      task: "$4"
+    type: GAUGE
+  - pattern: kafka.connect<type=(.+), name=(.+)><>Value
+    name: kafka_connect_$1_$2
+    type: GAUGE
+  - pattern: kafka.connect<type=(.+), name=(.+), connector=(.+), task=(.*)><>Count
+    name: kafka_connect_$1_$2
+    labels:
+      connector: "$3"
+      task: "$4"
+    type: COUNTER
+  - pattern: kafka.connect<type=(.+), name=(.+), connector=(.+), task=(.*)><>(OneMinuteRate|FiveMinuteRate|FifteenMinuteRate|MeanRate)
+    name: kafka_connect_$1_$2
+    labels:
+      connector: "$3"
+      task: "$4"
+    type: GAUGE
+  - pattern: kafka.connect<type=(.+), name=(.+)><>Count
+    name: kafka_connect_$1_$2
+    type: COUNTER
+  - pattern: kafka.consumer<type=(.+), name=(.+), client-id=(.+), topic=(.+), partition=(.*)><>Value
+    name: kafka_consumer_$1_$2
+    labels:
+      client_id: "$3"
+      topic: "$4"
+      partition: "$5"
+    type: GAUGE
+  - pattern: java.lang<type=Memory><>HeapMemoryUsage\.(used|committed|max)
+    name: jvm_memory_heap_$1
+    type: GAUGE
+  - pattern: java.lang<type=OperatingSystem><>((ProcessCpuTime|SystemCpuLoad|ProcessCpuLoad))
+    name: jvm_os_$1
+    type: GAUGE
+  - pattern: java.lang<type=Threading><>ThreadCount
+    name: jvm_threads_count
+    type: GAUGE
