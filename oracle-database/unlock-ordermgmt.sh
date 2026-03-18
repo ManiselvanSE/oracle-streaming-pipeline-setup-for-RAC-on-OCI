@@ -1,18 +1,18 @@
 #!/bin/bash
-# Unlock ordermgmt and set password to ConFL#_uent12
+# Unlock ordermgmt and set password
 # Run on VM where sqlplus is available.
-# Usage: ./unlock-ordermgmt.sh [SYSDBA_PASSWORD]
-#   If SYSDBA_PASSWORD not given, uses ConFL#_uent12 for sys
+# Usage: SYSDBA_PWD='<sys_password>' NEW_ORDMGMT_PWD='<new_ordermgmt_password>' ./unlock-ordermgmt.sh
+#   Or: ./unlock-ordermgmt.sh <SYSDBA_PASSWORD>  (requires NEW_ORDMGMT_PWD env for new ordermgmt password)
 
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 export TNS_ADMIN="$SCRIPT_DIR"
 
-SYSDBA_PWD="${1:-ConFL#_uent12}"
-NEW_PWD="ConFL#_uent12"
+SYSDBA_PWD="${1:-${SYSDBA_PWD:?Set SYSDBA_PWD or pass as arg 1}}"
+NEW_PWD="${NEW_ORDMGMT_PWD:?Set NEW_ORDMGMT_PWD for the new ordermgmt password}"
 
-echo "Unlocking ordermgmt and setting password to $NEW_PWD"
+echo "Unlocking ordermgmt and setting password"
 echo "Using sys with provided SYSDBA password to XSTRPDB..."
 
 sqlplus -S "sys/${SYSDBA_PWD}@XSTRPDB as sysdba" << EOF
@@ -27,5 +27,5 @@ EXIT;
 EOF
 
 echo "Done. You can now run:"
-echo "  export ORDMGMT_PWD='$NEW_PWD'"
+echo "  export ORDMGMT_PWD='<password>'"
 echo "  ./run-generate-heavy-cdc-load.sh 50000"
