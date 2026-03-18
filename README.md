@@ -12,6 +12,7 @@ A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent O
 - [Quick Start](#quick-start)
 - [Oracle Database](#oracle-database)
 - [Demo: End-to-End Flow](#demo-end-to-end-flow)
+- [Screenshot](#screenshot)
 - [Troubleshooting](#troubleshooting)
 - [Project Structure](#project-structure)
 - [References](#references)
@@ -57,6 +58,7 @@ A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent O
 - [docs/EXECUTION-GUIDE.md](docs/EXECUTION-GUIDE.md) – Full setup commands
 - [docs/DEMO.md](docs/DEMO.md) – Step-by-step live demo script
 - [monitoring/README.md](monitoring/README.md) – **Monitoring setup** (Grafana, Prometheus, JMX exporters)
+- [load-testing/README.md](load-testing/README.md) – **Load testing** (Kafka → Flink throughput, step tests)
 
 ### Demo Flow (5 steps)
 
@@ -89,6 +91,7 @@ oracle-xstream-cdc-poc/
 ├── oracle-database/                # SQL scripts (run 01→14 in order)
 ├── xstream-connector/              # Connector config (oracle-xstream-rac-docker.json)
 ├── monitoring/                    # Monitoring stack (optional)
+├── load-testing/                  # Throughput load testing (Kafka → Flink)
 │   ├── README.md                  # Full monitoring setup guide
 │   ├── jmx/                       # JMX Exporter configs
 │   ├── prometheus/                # Prometheus config + alerts
@@ -162,6 +165,12 @@ Expected: Debezium JSON with `"op":"c"` (create/INSERT), `"after"` with row data
 
 ---
 
+## Screenshot
+
+![Oracle XStream CDC - Grafana Kafka Overview](screenshots/grafana-cdc-overview.png)
+
+---
+
 ## Troubleshooting
 
 See [troubleshooting/TROUBLESHOOTING.md](troubleshooting/TROUBLESHOOTING.md). Summary:
@@ -202,6 +211,21 @@ docker exec kafka2 kafka-topics --bootstrap-server kafka1:29092,kafka2:29092,kaf
 This project is licensed under the [Apache License 2.0](LICENSE).
 
 **Note:** The Oracle XStream CDC connector is a Confluent Premium connector. A 30-day trial is available for POC.
+
+---
+
+## About the Screenshot
+
+The screenshot above shows the **Oracle XStream CDC – Kafka Overview** Grafana dashboard in action. It captures real-time performance metrics for the CDC pipeline streaming changes from Oracle RAC to Kafka.
+
+**What it shows:** Time-series panels for system health (kafka-exporter, Prometheus, schema-registry), topic partitions, Kafka throughput (messages/sec), Oracle XStream CDC throughput from RAC, and the Oracle XStream Connector throughput (records/sec). The synchronized spikes around 22:30 demonstrate successful end-to-end flow after a heavy-load insert test.
+
+**Key features visible:**
+- **Kafka Throughput** and **Oracle XStream CDC Throughput** both spike to ~100 messages/sec, confirming data flows from Oracle into Kafka topics.
+- **Oracle XStream Connector Throughput** peaks at ~1,000 records/sec, showing the connector’s processing rate.
+- **Topic Partitions** and **Connector Rate (current)** panels help monitor steady-state vs. burst activity.
+
+**Context:** This dashboard is part of the optional monitoring stack (see [monitoring/README.md](monitoring/README.md)). Run the heavy-load script (`oracle-database/run-generate-heavy-cdc-load.sh`) to generate similar throughput spikes for validation.
 
 ---
 
