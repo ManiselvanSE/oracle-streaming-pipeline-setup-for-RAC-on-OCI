@@ -59,6 +59,7 @@ A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent O
 - [docs/DEMO.md](docs/DEMO.md) – Step-by-step live demo script
 - [monitoring/README.md](monitoring/README.md) – **Monitoring setup** (Grafana, Prometheus, JMX exporters)
 - [load-testing/README.md](load-testing/README.md) – **Load testing** (Kafka → Flink throughput, step tests)
+- [docs/PERFORMANCE-OPTIMIZATION.md](docs/PERFORMANCE-OPTIMIZATION.md) – **Ultra high-throughput tuning** (connector, JVM, GC, serialization)
 
 ### Demo Flow (5 steps)
 

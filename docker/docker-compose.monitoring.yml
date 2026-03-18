@@ -55,10 +55,30 @@ services:
     volumes:
       - ../monitoring/jmx/schema-registry.yml:/opt/jmx-exporter/schema-registry.yml:ro
 
-  # Connect JMX disabled - JAR path may not exist in image; Connect runs without JMX for now
   connect:
+    environment:
+      # JMX Exporter + throughput-optimized JVM (G1GC, heap, dedup)
+      KAFKA_OPTS: >-
+        -javaagent:/opt/jmx-exporter/jmx_prometheus_javaagent.jar=9991:/opt/jmx-exporter/kafka-connect.yml
+        -Dcom.sun.management.jmxremote=true
+        -Dcom.sun.management.jmxremote.authenticate=false
+        -Dcom.sun.management.jmxremote.ssl=false
+        -XX:+UseG1GC
+        -XX:MaxGCPauseMillis=200
+        -XX:InitiatingHeapOccupancyPercent=45
+        -XX:G1HeapRegionSize=16m
+        -Xms4g -Xmx4g
+        -XX:+UseStringDeduplication
+        -XX:-UseBiasedLocking
     ports:
       - "8083:8083"
+      - "9994:9991"
+    volumes:
+      - ../monitoring/jmx/kafka-connect.yml:/opt/jmx-exporter/kafka-connect.yml:ro
+    deploy:
+      resources:
+        limits:
+          memory: 6G
 
   kafka-exporter:
     image: danielqsj/kafka-exporter:latest

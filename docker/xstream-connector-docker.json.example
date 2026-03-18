@@ -2,7 +2,7 @@
   "name": "oracle-xstream-rac-connector",
   "config": {
     "connector.class": "io.confluent.connect.oracle.xstream.cdc.OracleXStreamSourceConnector",
-    "tasks.max": "1",
+    "tasks.max": "4",
     "database.hostname": "racdb-scan.your-domain.oraclevcn.com",
     "database.port": "1521",
     "database.user": "c##cfltuser",
@@ -24,12 +24,14 @@
     "schema.history.internal.kafka.recovery.poll.interval.ms": "30000",
     "snapshot.mode": "initial",
     "snapshot.fetch.size": "10000",
-    "snapshot.max.threads": "4",
-    "query.fetch.size": "10000",
-    "max.queue.size": "65536",
-    "max.batch.size": "16384",
-    "producer.override.batch.size": "204800",
+    "snapshot.max.threads": "8",
+    "query.fetch.size": "50000",
+    "max.queue.size": "262144",
+    "max.batch.size": "65536",
+    "producer.override.batch.size": "1048576",
     "producer.override.linger.ms": "50",
+    "producer.override.compression.type": "lz4",
+    "producer.override.buffer.memory": "67108864",
     "heartbeat.interval.ms": "300000"
   }
 }
