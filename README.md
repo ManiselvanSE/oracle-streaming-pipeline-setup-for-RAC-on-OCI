@@ -23,7 +23,7 @@ A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent O
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│  OCI / On-Premises                                                                │
+│  OCI                                                                              │
 │                                                                                   │
 │  ┌──────────────────────────┐         ┌────────────────────────────────────────┐  │
 │  │  Oracle RAC              │         │  Connector VM (Docker)                  │  │
@@ -31,7 +31,7 @@ A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent O
 │  │                           │ ─────► │  • 3-Broker Kafka (KRaft)               │  │
 │  │  • XStream Out outbound   │  1521  │  • Kafka Connect + Oracle XStream CDC   │  │
 │  │  • Supplemental logging  │         │  • Schema Registry                      │  │
-│  │  • ORDERMGMT schema       │         │  • [Optional] Grafana, Prometheus,      │  │
+│  │  • ORDERMGMT schema       │         │  • Grafana, Prometheus,                │  │
 │  │  • CDC load scripts       │         │    Kafka Exporter                       │  │
 │  └──────────────────────────┘         └────────────────────────────────────────┘  │
 │           │                                          │                             │
