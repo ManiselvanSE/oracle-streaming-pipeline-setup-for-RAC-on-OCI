@@ -22,19 +22,28 @@ A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent O
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  OCI / On-Premises                                                       │
-│                                                                          │
-│  ┌──────────────────────┐         ┌─────────────────────────────────┐  │
-│  │  Connector VM         │         │  Oracle RAC                     │  │
-│  │  (Docker)             │  ────►  │  SCAN: racdb-scan...            │  │
-│  │  Port: 1521            │  1521   │  XStream Out configured         │  │
-│  │                        │         │                                  │  │
-│  │  • 3-Broker Kafka      │         │  • XStream Out outbound server   │  │
-│  │  • Kafka Connect       │         │  • Supplemental logging         │  │
-│  │  • Oracle XStream CDC  │         │  • ORDERMGMT sample schema       │  │
-│  └──────────────────────┘         └─────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│  OCI / On-Premises                                                                │
+│                                                                                   │
+│  ┌──────────────────────────┐         ┌────────────────────────────────────────┐  │
+│  │  Oracle RAC              │         │  Connector VM (Docker)                  │  │
+│  │  SCAN: racdb-scan...      │  LCR   │                                         │  │
+│  │                           │ ─────► │  • 3-Broker Kafka (KRaft)               │  │
+│  │  • XStream Out outbound   │  1521  │  • Kafka Connect + Oracle XStream CDC   │  │
+│  │  • Supplemental logging  │         │  • Schema Registry                      │  │
+│  │  • ORDERMGMT schema       │         │  • [Optional] Grafana, Prometheus,      │  │
+│  │  • CDC load scripts       │         │    Kafka Exporter                       │  │
+│  └──────────────────────────┘         └────────────────────────────────────────┘  │
+│           │                                          │                             │
+│           │ sqlplus (load scripts)                   │ racdb.ORDERMGMT.* topics     │
+│           ▼                                          ▼                             │
+│  ┌──────────────────────────┐         ┌────────────────────────────────────────┐  │
+│  │  Oracle host              │         │  Kafka topics (CDC events)              │  │
+│  │  Load scripts, unlock     │         │  Consumers / downstream apps            │  │
+│  └──────────────────────────┘         └────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────────────────┘
+
+Data flow: Oracle DML → Redo → XStream Out (LCR) → Connector → Kafka Topics (JSON)
 ```
 
 ---
