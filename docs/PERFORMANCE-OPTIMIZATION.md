@@ -352,6 +352,28 @@ export ORDMGMT_PWD='<password>'
 # Watch Grafana: Oracle XStream Connector Throughput, CDC Throughput
 ```
 
+### 9.4 Throughput Testing Results (OCI RAC POC)
+
+Validated on Oracle RAC (XSTRPDB) → Kafka Connect → Kafka, with optimizations applied.
+
+| Load | Oracle Insert Rate | Connector Throughput (peak) | Kafka / CDC Throughput |
+|------|--------------------|-----------------------------|------------------------|
+| 100K rows | ~48K rows/sec | ~2 K records/sec | ~180–200 msg/sec |
+| 500K rows | ~46K rows/sec | **>10 K records/sec** | ~1.8–2 K msg/sec |
+
+**Configuration used:**
+- Connector: `tasks.max=4`, `query.fetch.size=50000`, `max.queue.size=262144`, `max.batch.size=65536`
+- Producer: `batch.size=1MB`, `linger.ms=50`, `compression.type=lz4`
+- JVM: G1GC, 4 GB heap, `UseStringDeduplication`, `-UseBiasedLocking`
+
+**How to reproduce:**
+```bash
+cd oracle-database
+export ORDMGMT_PWD='<password>'
+./run-generate-heavy-cdc-load.sh 500000
+# Monitor: Grafana → Oracle XStream CDC - Kafka Overview
+```
+
 ---
 
 ## 10. Prioritized Action List

@@ -59,7 +59,7 @@ A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent O
 - [docs/DEMO.md](docs/DEMO.md) – Step-by-step live demo script
 - [monitoring/README.md](monitoring/README.md) – **Monitoring setup** (Grafana, Prometheus, JMX exporters)
 - [load-testing/README.md](load-testing/README.md) – **Load testing** (Kafka → Flink throughput, step tests)
-- [docs/PERFORMANCE-OPTIMIZATION.md](docs/PERFORMANCE-OPTIMIZATION.md) – **Ultra high-throughput tuning** (connector, JVM, GC, serialization)
+- [docs/PERFORMANCE-OPTIMIZATION.md](docs/PERFORMANCE-OPTIMIZATION.md) – **Ultra high-throughput tuning** (connector, JVM, GC, serialization) — validated **>10K records/sec** on 500K load
 
 ### Demo Flow (5 steps)
 
@@ -222,11 +222,11 @@ The screenshot above shows the **Oracle XStream CDC – Kafka Overview** Grafana
 **What it shows:** Time-series panels for system health (kafka-exporter, Prometheus, schema-registry), topic partitions, Kafka throughput (messages/sec), Oracle XStream CDC throughput from RAC, and the Oracle XStream Connector throughput (records/sec). The synchronized spikes around 22:30 demonstrate successful end-to-end flow after a heavy-load insert test.
 
 **Key features visible:**
-- **Kafka Throughput** and **Oracle XStream CDC Throughput** both spike to ~100 messages/sec, confirming data flows from Oracle into Kafka topics.
-- **Oracle XStream Connector Throughput** peaks at ~1,000 records/sec, showing the connector’s processing rate.
+- **Kafka Throughput** and **Oracle XStream CDC Throughput** show message rate into CDC topics.
+- **Oracle XStream Connector Throughput** shows records/sec (validated **>10K records/sec** on 500K-row load with optimizations).
 - **Topic Partitions** and **Connector Rate (current)** panels help monitor steady-state vs. burst activity.
 
-**Context:** This dashboard is part of the optional monitoring stack (see [monitoring/README.md](monitoring/README.md)). Run the heavy-load script (`oracle-database/run-generate-heavy-cdc-load.sh`) to generate similar throughput spikes for validation.
+**Context:** This dashboard is part of the optional monitoring stack (see [monitoring/README.md](monitoring/README.md)). Run the heavy-load script (`oracle-database/run-generate-heavy-cdc-load.sh 500000`) to generate throughput spikes. See [docs/PERFORMANCE-OPTIMIZATION.md](docs/PERFORMANCE-OPTIMIZATION.md) for tuning and validated results.
 
 ---
 
