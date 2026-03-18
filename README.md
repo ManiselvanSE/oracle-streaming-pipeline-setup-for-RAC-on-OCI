@@ -78,6 +78,7 @@ oracle-xstream-cdc-poc/
 ├── README.md
 ├── docker/                         # 3-broker Kafka cluster (primary)
 │   ├── docker-compose.yml
+│   ├── docker-compose.monitoring.yml
 │   ├── Dockerfile.connect
 │   ├── .env.example
 │   ├── xstream-connector-docker.json.example
@@ -90,20 +91,37 @@ oracle-xstream-cdc-poc/
 │       ├── increase-rf-to-3.sh
 │       └── install-docker.sh
 ├── oracle-database/                # SQL scripts (run 01→14 in order)
-├── xstream-connector/              # Connector config (oracle-xstream-rac-docker.json)
-├── monitoring/                    # Monitoring stack (optional)
-├── load-testing/                  # Throughput load testing (Kafka → Flink)
-│   ├── README.md                  # Full monitoring setup guide
-│   ├── jmx/                       # JMX Exporter configs
-│   ├── prometheus/                # Prometheus config + alerts
-│   └── grafana/                   # Dashboards + provisioning
+│   ├── 01-14*.sql                  # Schema, XStream, outbound, verification
+│   ├── tnsnames.ora.example        # TNS template (copy to tnsnames.ora)
+│   ├── 15-generate-cdc-throughput.sql
+│   ├── 16-generate-heavy-cdc-load.sql
+│   ├── run-generate-cdc-throughput.sh
+│   ├── run-generate-heavy-cdc-load.sh
+│   └── unlock-ordermgmt.sh         # Unlock ordermgmt (requires SYSDBA_PWD, NEW_ORDMGMT_PWD)
+├── xstream-connector/              # Connector config
+│   ├── README.md
+│   ├── oracle-xstream-rac-docker.json.example
+│   └── oracle-xstream-rac-connector.properties.example
+├── monitoring/                     # Monitoring stack (optional)
+│   ├── README.md
+│   ├── jmx/                        # JMX Exporter configs
+│   ├── prometheus/                 # Prometheus config + alerts
+│   ├── grafana/                    # Dashboards + provisioning
+│   ├── docs/                       # GRAFANA-DASHBOARD-README, CDC-THROUGHPUT-METRICS
+│   └── scripts/
+├── load-testing/                   # Kafka throughput load testing
+│   ├── README.md
+│   └── scripts/
 ├── troubleshooting/
 │   └── TROUBLESHOOTING.md
 ├── screenshots/
+│   ├── README.md
+│   └── grafana-cdc-overview.png
 └── docs/
     ├── IMPLEMENTATION-GUIDE.md
     ├── EXECUTION-GUIDE.md
-    └── DEMO.md
+    ├── DEMO.md
+    └── PERFORMANCE-OPTIMIZATION.md
 ```
 
 ---
