@@ -15,8 +15,7 @@ if [ ! -f "$CONNECTOR_JSON" ]; then
 fi
 if [ ! -f "$CONNECTOR_JSON" ]; then
   echo "ERROR: Connector config not found."
-  echo "  cp docker/xstream-connector-docker.json.example xstream-connector/oracle-xstream-rac-docker.json"
-  echo "  Edit oracle-xstream-rac-docker.json with database credentials"
+  echo "  Edit xstream-connector/oracle-xstream-rac-docker.json with database credentials"
   echo "  Run this script again."
   exit 1
 fi

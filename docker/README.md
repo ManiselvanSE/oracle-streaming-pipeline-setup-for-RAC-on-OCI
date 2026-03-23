@@ -15,9 +15,8 @@ Docker-based setup with **3 Kafka brokers** (KRaft), Schema Registry, and Kafka 
 cp docker/.env.example docker/.env
 # Edit docker/.env: set ORACLE_INSTANTCLIENT_PATH
 
-# 2. Prepare connector config
-cp docker/xstream-connector-docker.json.example xstream-connector/oracle-xstream-rac-docker.json
-# Edit oracle-xstream-rac-docker.json: database.password, database.service.name, database.hostname
+# 2. Edit connector config
+# Edit xstream-connector/oracle-xstream-rac-docker.json: database.password, database.service.name, database.hostname
 
 # 3. Start cluster
 ./docker/scripts/start-docker-cluster.sh

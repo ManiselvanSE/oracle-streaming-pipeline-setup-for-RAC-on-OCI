@@ -25,7 +25,7 @@ This guide covers migrating to the 3-broker Docker-based cluster.
 
 2. **Prepare connector config**
    ```bash
-   cp docker/xstream-connector-docker.json.example xstream-connector/oracle-xstream-rac-docker.json
+   # Edit xstream-connector/oracle-xstream-rac-docker.json
    # Edit: database.password, database.service.name, database.hostname
    ```
 

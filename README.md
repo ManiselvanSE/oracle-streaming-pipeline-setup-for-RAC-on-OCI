@@ -79,7 +79,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a Lucidchart-style diagram 
 | 2 | Copy project: `scp -r oracle-xstream-cdc-poc opc@<vm-ip>:/home/opc/` |
 | 3 | Install Docker (if needed): `sudo ./docker/scripts/install-docker.sh` |
 | 4 | Configure: `cp docker/.env.example docker/.env` and set `ORACLE_INSTANTCLIENT_PATH` |
-| 5 | Connector config: `cp xstream-connector/oracle-xstream-rac-docker.json.example xstream-connector/oracle-xstream-rac-docker.json` — edit `database.password`, `database.hostname`, `database.service.name` |
+| 5 | Connector config: edit `xstream-connector/oracle-xstream-rac-docker.json` — set `database.password`, `database.hostname`, `database.service.name` |
 | 6 | Start: `./docker/scripts/start-docker-cluster.sh` |
 | 7 | Pre-create topics: `./docker/scripts/precreate-topics.sh` |
 | 8 | Deploy connector: `./docker/scripts/complete-migration-on-vm.sh` |
@@ -100,7 +100,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a Lucidchart-style diagram 
 
 1. **Oracle** – Run SQL scripts 01→06 in `oracle-database/` to enable XStream and create outbound server  
 2. **VM** – Install Docker, extract Oracle Instant Client to `/opt/oracle/instantclient/instantclient_19_30`  
-3. **Connector** – Copy `docker/xstream-connector-docker.json.example` → `xstream-connector/oracle-xstream-rac-docker.json` and set credentials  
+3. **Connector** – Edit `xstream-connector/oracle-xstream-rac-docker.json` and set credentials  
 4. **Start** – Run `./docker/scripts/start-docker-cluster.sh`, `precreate-topics.sh`, `complete-migration-on-vm.sh`  
 5. **Verify** – Insert into `ORDERMGMT.MTX_TRANSACTION_ITEMS`, consume from Kafka topic `racdb.ORDERMGMT.MTX_TRANSACTION_ITEMS`
 
@@ -135,7 +135,7 @@ oracle-xstream-cdc-poc/
 │   └── unlock-ordermgmt.sh         # Unlock ordermgmt (requires SYSDBA_PWD, NEW_ORDMGMT_PWD)
 ├── xstream-connector/              # Connector config
 │   ├── README.md
-│   ├── oracle-xstream-rac-docker.json.example
+│   ├── oracle-xstream-rac-docker.json
 │   └── oracle-xstream-rac-connector.properties.example
 ├── monitoring/                     # Monitoring stack (optional)
 │   ├── README.md

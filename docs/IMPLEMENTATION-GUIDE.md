@@ -211,10 +211,10 @@ Downstream consumers (Kafka Streams, Flink, etc.)
 
 1. **Create connector config:**
    ```bash
-   cp docker/xstream-connector-docker.json.example xstream-connector/oracle-xstream-rac-docker.json
+   # Edit xstream-connector/oracle-xstream-rac-docker.json
    ```
 
-2. **Edit `oracle-xstream-rac-docker.json`** – set these values:
+2. **Edit `xstream-connector/oracle-xstream-rac-docker.json`** – set these values:
 
    | Property | Value | Example |
    |----------|-------|---------|
