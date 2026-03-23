@@ -8,6 +8,19 @@ whitelistObjectNames:
   - "kafka.producer:*"
   - "java.lang:*"
 rules:
+  # Source task metrics - connector throughput (Kafka 3.x format: type=source-task-metrics, no "name" in ObjectName)
+  - pattern: kafka.connect<type=source-task-metrics, connector=(.+), task=(.+)><>source-record-write-rate
+    name: kafka_connect_source_task_metrics_source_record_write_rate
+    labels:
+      connector: "$1"
+      task: "$2"
+    type: GAUGE
+  - pattern: kafka.connect<type=source-task-metrics, connector=(.+), task=(.+)><>source-record-poll-rate
+    name: kafka_connect_source_task_metrics_source_record_poll_rate
+    labels:
+      connector: "$1"
+      task: "$2"
+    type: GAUGE
   - pattern: kafka.connect<type=(.+), name=(.+), connector=(.+), task=(.*)><>Value
     name: kafka_connect_$1_$2
     labels:

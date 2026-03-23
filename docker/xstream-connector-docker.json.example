@@ -2,7 +2,7 @@
   "name": "oracle-xstream-rac-connector",
   "config": {
     "connector.class": "io.confluent.connect.oracle.xstream.cdc.OracleXStreamSourceConnector",
-    "tasks.max": "4",
+    "tasks.max": "1",
     "database.hostname": "racdb-scan.your-domain.oraclevcn.com",
     "database.port": "1521",
     "database.user": "c##cfltuser",

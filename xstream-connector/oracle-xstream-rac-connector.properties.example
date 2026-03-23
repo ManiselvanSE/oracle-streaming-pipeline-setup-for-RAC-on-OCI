@@ -2,7 +2,7 @@
 # Copy to oracle-xstream-rac-connector.properties and set database.password, database.hostname, database.service.name
 name=oracle-xstream-rac-connector
 connector.class=io.confluent.connect.oracle.xstream.cdc.OracleXStreamSourceConnector
-tasks.max=4
+tasks.max=1
 
 database.hostname=racdb-scan.your-domain.oraclevcn.com
 database.port=1521

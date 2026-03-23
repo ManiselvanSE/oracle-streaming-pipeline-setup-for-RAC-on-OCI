@@ -1,6 +1,6 @@
-# Oracle CDC XStream Connector – OCI RAC
+# Oracle RAC on OCI with Kafka XStream CDC Pipeline
 
-A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent Oracle XStream CDC Connector**, streaming changes from **Oracle RAC** to **Apache Kafka** on OCI.
+A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent Oracle XStream CDC Connector**, streaming changes from **Oracle RAC on OCI DB System** to **Apache Kafka**. All infrastructure runs on **Oracle Cloud Infrastructure (OCI)**.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
@@ -9,12 +9,17 @@ A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent O
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
+- [Environment Overview](#environment-overview)
 - [Quick Start](#quick-start)
+- [Project Structure](#project-structure)
+- [Validation](#validation)
 - [Oracle Database](#oracle-database)
 - [Demo: End-to-End Flow](#demo-end-to-end-flow)
 - [Screenshot](#screenshot)
 - [Troubleshooting](#troubleshooting)
-- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [License](#license)
+- [About the Screenshot](#about-the-screenshot)
 - [References](#references)
 
 ---
@@ -46,6 +51,24 @@ A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent O
 Data flow: Oracle DML → Redo → XStream Out (LCR) → Connector → Kafka Topics (JSON)
 ```
 
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a Lucidchart-style diagram description and network components.
+
+---
+
+## Environment Overview
+
+| Item | Value |
+|------|-------|
+| **Cloud provider** | Oracle Cloud Infrastructure (OCI) |
+| **Oracle RAC** | OCI DB System (Managed); 19c or 21c |
+| **Connector VM** | OCI Compute; Oracle Linux 9; VM.Standard.E4.Flex (4 OCPUs, 16 GB) |
+| **Kafka** | Apache Kafka 3.x (Confluent Platform 7.9) on Docker |
+
+**Provisioning guides:**
+- [Oracle RAC on OCI](https://docs.oracle.com/en/cloud/paas/db-shared/create-dbcs.html) – Create DB System
+- [docs/OCI-VM-SETUP.md](docs/OCI-VM-SETUP.md) – VCN, subnet, compute VM, security rules
+- [docs/OCI-DB-SYSTEM-SETUP.md](docs/OCI-DB-SYSTEM-SETUP.md) – DB System configuration reference (screenshots with sensitive data masked)
+
 ---
 
 ## Quick Start
@@ -56,15 +79,18 @@ Data flow: Oracle DML → Redo → XStream Out (LCR) → Connector → Kafka Top
 | 2 | Copy project: `scp -r oracle-xstream-cdc-poc opc@<vm-ip>:/home/opc/` |
 | 3 | Install Docker (if needed): `sudo ./docker/scripts/install-docker.sh` |
 | 4 | Configure: `cp docker/.env.example docker/.env` and set `ORACLE_INSTANTCLIENT_PATH` |
-| 5 | Connector config: `cp docker/xstream-connector-docker.json.example xstream-connector/oracle-xstream-rac-docker.json` — edit `database.password`, `database.hostname`, `database.service.name` |
+| 5 | Connector config: `cp xstream-connector/oracle-xstream-rac-docker.json.example xstream-connector/oracle-xstream-rac-docker.json` — edit `database.password`, `database.hostname`, `database.service.name` |
 | 6 | Start: `./docker/scripts/start-docker-cluster.sh` |
 | 7 | Pre-create topics: `./docker/scripts/precreate-topics.sh` |
 | 8 | Deploy connector: `./docker/scripts/complete-migration-on-vm.sh` |
 | 9 | Verify: `curl -s http://localhost:8083/connectors/oracle-xstream-rac-connector/status | jq .` |
 
 **Detailed guides:**
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) – Architecture diagram, network components
+- [docs/OCI-VM-SETUP.md](docs/OCI-VM-SETUP.md) – VCN, subnet, VM, security rules
 - [docs/IMPLEMENTATION-GUIDE.md](docs/IMPLEMENTATION-GUIDE.md) – **Complete end-to-end implementation guide**
 - [docs/EXECUTION-GUIDE.md](docs/EXECUTION-GUIDE.md) – Full setup commands
+- [docs/VALIDATION.md](docs/VALIDATION.md) – RAC status check, validation steps
 - [docs/DEMO.md](docs/DEMO.md) – Step-by-step live demo script
 - [monitoring/README.md](monitoring/README.md) – **Monitoring setup** (Grafana, Prometheus, JMX exporters)
 - [load-testing/README.md](load-testing/README.md) – **Load testing** (Kafka → Flink throughput, step tests)
@@ -125,8 +151,14 @@ oracle-xstream-cdc-poc/
 │   └── TROUBLESHOOTING.md
 ├── screenshots/
 │   ├── README.md
-│   └── grafana-cdc-overview.png
+│   ├── grafana-cdc-overview.png
+│   ├── oci-db-system-info.png         # OCI DB System (redacted)
+│   └── oci-db-system-nodes.png       # OCI RAC nodes (redacted)
 └── docs/
+    ├── ARCHITECTURE.md            # Diagram, Environment Overview, network
+    ├── OCI-VM-SETUP.md            # VCN, subnet, VM, security rules
+    ├── OCI-DB-SYSTEM-SETUP.md     # DB System config reference (masked screenshots)
+    ├── VALIDATION.md              # RAC status check
     ├── IMPLEMENTATION-GUIDE.md
     ├── EXECUTION-GUIDE.md
     ├── DEMO.md
@@ -135,9 +167,32 @@ oracle-xstream-cdc-poc/
 
 ---
 
-## Oracle Database
+## Validation
 
-The Oracle RAC database must have XStream enabled and the outbound server configured. Run the SQL scripts in [oracle-database/](oracle-database/) **in order** (01 → 14).
+Before configuring the connector, verify Oracle RAC is healthy. See [docs/VALIDATION.md](docs/VALIDATION.md) for details.
+
+**RAC status (run as `grid` on RAC node):**
+```bash
+# Script: https://github.com/guestart/Linux-Shell-Scripts/blob/master/check_rac_res/check_rac_res_status.sh
+./check_rac_res_status.sh
+```
+
+**Connector status:**
+```bash
+curl -s http://localhost:8083/connectors/oracle-xstream-rac-connector/status | jq .
+```
+
+---
+
+## Oracle RAC on OCI DB System
+
+The Oracle RAC database runs on **OCI DB System** (managed). It must have XStream enabled and the outbound server configured.
+
+**Provisioning:** See [Create Oracle Base Database (DB System)](https://docs.oracle.com/en/cloud/paas/db-shared/create-dbcs.html). For RAC, use a RAC-enabled shape. Prerequisites: Oracle 19c or 21c, ARCHIVELOG mode.
+
+**Version:** 19c or 21c Enterprise Edition. XStream requires `enable_goldengate_replication=TRUE`.
+
+Run the SQL scripts in [oracle-database/](oracle-database/) **in order** (01 → 14).
 
 ### Prerequisites
 
@@ -201,14 +256,29 @@ Expected: Debezium JSON with `"op":"c"` (create/INSERT), `"after"` with row data
 
 ## Troubleshooting
 
-See [troubleshooting/TROUBLESHOOTING.md](troubleshooting/TROUBLESHOOTING.md). Summary:
+See [troubleshooting/TROUBLESHOOTING.md](troubleshooting/TROUBLESHOOTING.md).
 
-| Issue | Fix |
-|-------|-----|
-| **Connection reset on deploy** | Wait 60s after cluster start; ensure Oracle JARs in connector lib |
-| **No suitable driver (OCI)** | Verify `LD_LIBRARY_PATH`, `ojdbc8.jar`, `xstreams.jar` in connector plugin |
-| **ORA-12514 / service name** | Re-query `gv$SERVICES` for `network_name`, update `database.service.name` (escape `$` as `\\$`) |
-| **Connection to node 1/3 could not be established** | Use `kafka1:29092,kafka2:29092,kafka3:29092` for bootstrap (not localhost) |
+**Common errors:**
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| **ORA-12514** | XStream service name changed | Query `gv$SERVICES` for `network_name`, update `database.service.name` |
+| **ORA-28000** | ordermgmt locked | Run `unlock-ordermgmt.sh` with SYSDBA_PWD, NEW_ORDMGMT_PWD |
+| **Connection reset** | Connect not ready or Oracle JARs missing | Wait 60s; verify `ojdbc8.jar`, `xstreams.jar` in connector lib |
+| **No suitable driver (OCI)** | LD_LIBRARY_PATH or JARs | Check connect-entrypoint.sh, Instant Client mount |
+| **Connector FAILED** | DB connectivity, user, service | Inspect `trace` in status response |
+| **Connection to node 1/3** | Wrong bootstrap | Use `kafka1:29092,kafka2:29092,kafka3:29092` (not localhost) |
+
+### RAC Validation
+
+To verify RAC cluster health (run as `grid` user on a RAC node):
+
+```bash
+# Use script from: https://github.com/guestart/Linux-Shell-Scripts/blob/master/check_rac_res/check_rac_res_status.sh
+./check_rac_res_status.sh
+```
+
+**Expected output:** Node list, ASM UP, diskgroups MOUNTED, VIP/SCAN/Listener RUNNING. If any component shows DOWN, fix RAC before proceeding.
 
 ### Status Commands
 
@@ -227,10 +297,17 @@ docker exec kafka2 kafka-topics --bootstrap-server kafka1:29092,kafka2:29092,kaf
 
 ## Prerequisites
 
-- **Docker** and Docker Compose
-- **Oracle Instant Client** (Basic + SQL*Plus) on host at path in `docker/.env`
-- **Oracle RAC** 19c/21c, ARCHIVELOG, XStream enabled
-- **VM** – Oracle Linux 9, 4+ OCPUs, 16+ GB RAM recommended
+**Checklist before starting:**
+
+| Item | Check |
+|------|-------|
+| OCI tenancy | Compute + DB System access |
+| Oracle RAC | OCI DB System, 19c/21c, ARCHIVELOG |
+| XStream enabled | `SELECT VALUE FROM V$PARAMETER WHERE NAME='enable_goldengate_replication'` = TRUE |
+| Connector VM | Oracle Linux 9, 4+ OCPUs, 16+ GB RAM |
+| Docker + Compose | `docker --version`, `docker compose version` |
+| Oracle Instant Client | Basic + SQL*Plus at path in `docker/.env` |
+| Network | VM can reach RAC SCAN on port 1521 |
 
 ---
 

@@ -167,12 +167,17 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "targets": [
         {
-          "expr": "rate(kafka_server_brokertopicmetrics_messagesin_total{job=\"kafka-broker\"}[5m]) * 60",
-          "legendFormat": "{{instance}} - messages/min",
+          "expr": "sum(rate(kafka_topic_partition_current_offset{job=\"kafka-exporter\"}[5m]))",
+          "legendFormat": "Total msg/sec",
           "refId": "A"
+        },
+        {
+          "expr": "sum(rate(kafka_topic_partition_current_offset{job=\"kafka-exporter\"}[5m])) by (topic)",
+          "legendFormat": "{{topic}}",
+          "refId": "B"
         }
       ],
-      "title": "Kafka Throughput (Messages In per minute)",
+      "title": "Kafka Throughput (messages/sec)",
       "type": "timeseries"
     },
     {
@@ -191,12 +196,12 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "targets": [
         {
-          "expr": "kafka_server_brokertopicmetrics_bytesin_total{job=\"kafka-broker\"}",
-          "legendFormat": "{{instance}} - bytes in",
+          "expr": "sum(rate(kafka_topic_partition_current_offset{job=\"kafka-exporter\"}[5m])) by (topic)",
+          "legendFormat": "{{topic}} - msg/sec",
           "refId": "A"
         }
       ],
-      "title": "Kafka Bytes In (total)",
+      "title": "Kafka Message Rate (messages/sec per topic)",
       "type": "timeseries"
     },
     {
@@ -215,12 +220,12 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "targets": [
         {
-          "expr": "sum(rate(kafka_server_brokertopicmetrics_messagesin_total{topic=~\"racdb.*\"}[5m]))",
+          "expr": "sum(rate(kafka_topic_partition_current_offset{job=\"kafka-exporter\",topic=~\"racdb.*\"}[5m]))",
           "legendFormat": "Total CDC msgs/sec",
           "refId": "A"
         },
         {
-          "expr": "rate(kafka_server_brokertopicmetrics_messagesin_total{topic=~\"racdb.*\"}[5m])",
+          "expr": "sum(rate(kafka_topic_partition_current_offset{job=\"kafka-exporter\",topic=~\"racdb.*\"}[5m])) by (topic)",
           "legendFormat": "{{topic}}",
           "refId": "B"
         }
@@ -236,21 +241,47 @@
           "custom": { "axisCenteredZero": false, "axisColorMode": "text", "axisLabel": "", "axisPlacement": "auto" },
           "mappings": [],
           "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
-          "unit": "short"
+          "unit": "short",
+          "decimals": 2,
+          "min": 0
         }
       },
-      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 18 },
+      "gridPos": { "h": 6, "w": 8, "x": 12, "y": 18 },
       "id": 10,
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "targets": [
         {
-          "expr": "kafka_connect_source_task_metrics_source_record_write_rate{connector=\"oracle-xstream-rac-connector\"}",
+          "expr": "kafka_connect_source_task_metrics_source_record_write_rate",
           "legendFormat": "{{connector}} task {{task}} - records/sec",
           "refId": "A"
         }
       ],
       "title": "Oracle XStream Connector Throughput (records/sec)",
       "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short",
+          "decimals": 3
+        }
+      },
+      "gridPos": { "h": 6, "w": 4, "x": 20, "y": 18 },
+      "id": 11,
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "auto", "orientation": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "value_and_name" },
+      "targets": [
+        {
+          "expr": "kafka_connect_source_task_metrics_source_record_write_rate",
+          "legendFormat": "{{connector}} task {{task}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Connector Rate (records/sec) – current",
+      "type": "stat"
     }
   ],
   "refresh": "10s",

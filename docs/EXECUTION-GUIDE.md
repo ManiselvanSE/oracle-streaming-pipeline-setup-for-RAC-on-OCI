@@ -877,6 +877,8 @@ Or use: `./admin-commands/stop-confluent-kraft.sh`
 
 **Prerequisites:** XStream outbound already running (06-create-outbound-ordermgmt.sql completed); connector deployed and running.
 
+**Official reference:** [Confluent – Add tables to the capture set](https://docs.confluent.io/kafka-connectors/oracle-xstream-cdc-source/current/examples.html#add-tables-to-the-capture-set). This guide aligns with that approach.
+
 ---
 
 ## 6.1 Overview
@@ -960,7 +962,7 @@ DBMS_XSTREAM_ADM.ADD_TABLE_RULES(
 
 ## 6.5 Step 4: Update Connector Config (VM)
 
-1. Edit `xstream-connector/oracle-xstream-rac.json` and add the new table to `table.include.list`:
+1. Edit `xstream-connector/oracle-xstream-rac-docker.json` (Docker) or `oracle-xstream-rac.json` (standalone) and add the new table to `table.include.list`:
 
 ```json
 "table.include.list": "ORDERMGMT\\.(REGIONS|COUNTRIES|LOCATIONS|WAREHOUSES|EMPLOYEES|PRODUCT_CATEGORIES|PRODUCTS|CUSTOMERS|CONTACTS|ORDERS|ORDER_ITEMS|INVENTORIES|NOTES|NEW_ORDERS)"
@@ -982,11 +984,13 @@ curl -s http://localhost:8083/connectors/oracle-xstream-rac-connector/config | \
 curl -X POST "http://localhost:8083/connectors/oracle-xstream-rac-connector/restart?includeTasks=true"
 ```
 
-3. Verify the new topic:
+3. Verify the new topic (Docker):
 
 ```bash
-/opt/confluent/confluent/bin/kafka-topics --bootstrap-server localhost:9092 --list | grep NEW_ORDERS
+docker exec kafka2 kafka-topics --bootstrap-server kafka1:29092,kafka2:29092,kafka3:29092 --list | grep NEW_ORDERS
 ```
+
+For standalone Confluent: `kafka-topics --bootstrap-server localhost:9092 --list | grep NEW_ORDERS`
 
 ---
 

@@ -10,11 +10,11 @@
 
 | Priority | Action | Expected Impact |
 |----------|--------|-----------------|
-| 1 | Increase `tasks.max` to match CPU cores (up to table count) | **2–4x** throughput |
-| 2 | Apply JVM flags below to Connect container | **20–40%** throughput, lower GC pauses |
-| 3 | Tune connector batch/queue (see §6) | **30–50%** throughput |
+| 1 | Apply JVM flags below to Connect container | **20–40%** throughput, lower GC pauses |
+| 2 | Tune connector batch/queue for **streaming phase** (see §6) | **30–50%** throughput |
+| 3 | Increase `query.fetch.size` and `max.batch.size` | **10–20%** |
 | 4 | Switch to Avro + Schema Registry (if acceptable) | **15–25%** vs JSON |
-| 5 | Increase `query.fetch.size` and `max.batch.size` | **10–20%** |
+| 5 | Tune `snapshot.max.threads` for initial load only | Snapshot phase only |
 
 ---
 
@@ -26,7 +26,7 @@ The Confluent Oracle XStream CDC connector uses Oracle's `xstreams.jar`, Protoco
 
 ```json
 {
-  "tasks.max": "4",
+  "tasks.max": "1",
   "query.fetch.size": "50000",
   "max.queue.size": "262144",
   "max.batch.size": "65536",
@@ -43,7 +43,7 @@ The Confluent Oracle XStream CDC connector uses Oracle's `xstreams.jar`, Protoco
 
 | Parameter | Value | Rationale |
 |----------|-------|-----------|
-| `tasks.max` | 4–8 (≤ table count) | Parallel source tasks; each polls Oracle independently |
+| `tasks.max` | Often 1 for XStream (see §1.2) | XStream uses single LCR stream; `tasks.max` may be ignored |
 | `query.fetch.size` | 50000 | Fewer round-trips to Oracle |
 | `max.queue.size` | 262144 | Larger in-memory buffer; avoid backpressure |
 | `max.batch.size` | 65536 | More records per producer batch |
@@ -51,11 +51,35 @@ The Confluent Oracle XStream CDC connector uses Oracle's `xstreams.jar`, Protoco
 | `producer.override.linger.ms` | 50 | Batch for 50ms before send |
 | `producer.override.compression.type` | lz4 | Fast compression, less network I/O |
 
-### 1.2 Tasks vs Tables
+### 1.2 Task Configuration (XStream vs LogMiner)
 
-- `tasks.max` must be ≤ number of tables in `table.include.list`.
-- Each task handles a subset of tables; more tasks = more parallelism.
-- **Rule:** Start with `min(4, table_count)`; scale to `min(8, table_count)` if CPU-bound.
+**Important:** The Oracle XStream CDC connector typically runs with **1 task** because XStream Out delivers a single LCR stream per outbound server. Unlike the **LogMiner-based** Oracle connector (which can parallelize by tables), XStream does not partition work across multiple tasks in the same way.
+
+- **`tasks.max`:** Configurable, but the connector may only use 1 active task. See [Confluent connector configuration](https://docs.confluent.io/kafka-connectors/oracle-xstream-cdc-source/current/configuration-properties.html#connector).
+- **When increasing tasks is valid:** If the connector supports multiple outbound connections or table partitioning in a future version; currently expect 1 task.
+- **Throughput:** Optimize via batch sizes, fetch size, and JVM tuning—not via task count.
+
+### 1.3 Tuning by Phase
+
+| Phase | Key Parameters | Purpose |
+|-------|----------------|---------|
+| **Snapshot** | `snapshot.max.threads`, `snapshot.fetch.size` | Initial full table read |
+| **Streaming** | `query.fetch.size`, `max.queue.size`, `max.batch.size`, producer overrides | Ongoing CDC from XStream |
+
+#### Snapshot phase
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| `snapshot.max.threads` | 4–8 | Parallel snapshot of tables |
+| `snapshot.fetch.size` | 10000 | Rows per fetch during snapshot |
+
+#### Streaming phase
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| `query.fetch.size` | 50000 | LCRs per XStream fetch |
+| `max.queue.size` | 262144 | In-memory buffer |
+| `max.batch.size` | 65536 | Records per producer batch |
 
 ---
 
@@ -362,7 +386,7 @@ Validated on Oracle RAC (XSTRPDB) → Kafka Connect → Kafka, with optimization
 | 500K rows | ~46K rows/sec | **>10 K records/sec** | ~1.8–2 K msg/sec |
 
 **Configuration used:**
-- Connector: `tasks.max=4`, `query.fetch.size=50000`, `max.queue.size=262144`, `max.batch.size=65536`
+- Connector: `query.fetch.size=50000`, `max.queue.size=262144`, `max.batch.size=65536`
 - Producer: `batch.size=1MB`, `linger.ms=50`, `compression.type=lz4`
 - JVM: G1GC, 4 GB heap, `UseStringDeduplication`, `-UseBiasedLocking`
 
@@ -380,24 +404,23 @@ export ORDMGMT_PWD='<password>'
 
 ### HIGH Impact
 
-1. **`tasks.max` = 4–8** (match tables and CPU).
-2. **JVM flags** (G1GC, heap, `UseStringDeduplication`).
-3. **Connector batch/queue:** `max.batch.size` 65536, `max.queue.size` 262144.
-4. **Producer:** `batch.size` 1MB, `linger.ms` 50, `compression.type` lz4.
+1. **JVM flags** (G1GC, heap, `UseStringDeduplication`).
+2. **Connector batch/queue (streaming):** `max.batch.size` 65536, `max.queue.size` 262144.
+3. **Producer:** `batch.size` 1MB, `linger.ms` 50, `compression.type` lz4.
+4. **`query.fetch.size`** 50000.
 5. **Avro converter** (if Schema Registry available).
 
 ### MEDIUM Impact
 
-6. **`query.fetch.size`** 50000.
-7. **Heap** 8–16 GB for high load.
-8. **`producer.override.buffer.memory`** 64MB.
-9. **Oracle:** Same-region, low-latency network.
+6. **Heap** 8–16 GB for high load.
+7. **`producer.override.buffer.memory`** 64MB.
+8. **Oracle:** Same-region, low-latency network.
 
-### LOW Impact
+### LOW Impact (Snapshot phase)
 
-10. **`snapshot.max.threads`** 4–8 for initial load.
-11. **`heartbeat.interval.ms`** – increase if Oracle allows (reduces keepalive traffic).
-12. **Custom XStream tuning** – only if you have custom XML parsing code.
+9. **`snapshot.max.threads`** 4–8 for initial load.
+10. **`heartbeat.interval.ms`** – increase if Oracle allows (reduces keepalive traffic).
+11. **Custom XStream tuning** – only if you have custom XML parsing code.
 
 ---
 
@@ -428,8 +451,21 @@ connect:
 
 ---
 
+## 12. Performance References
+
+**Confluent – Oracle XStream CDC Performance Testing:**  
+https://confluentinc.atlassian.net/wiki/spaces/OAAC/pages/3946545186/Oracle+XStream+CDC+Source+Performance+Testing
+
+**Key findings (summary):**
+- Throughput scales with batch size, fetch size, and producer tuning.
+- JVM heap and GC tuning reduce pause times under load.
+- Network latency between VM and Oracle affects end-to-end latency.
+
+---
+
 ## References
 
 - [Confluent Oracle XStream CDC Connector](https://docs.confluent.io/kafka-connectors/oracle-xstream-cdc-source/current/overview.html)
+- [Connector Configuration Properties](https://docs.confluent.io/kafka-connectors/oracle-xstream-cdc-source/current/configuration-properties.html#connector)
 - [Kafka Connect Configuration](https://docs.confluent.io/platform/current/connect/references/restapi.html#connectors)
 - [G1GC Tuning](https://docs.oracle.com/javase/9/gctuning/garbage-first-garbage-collector.htm)
