@@ -2,6 +2,10 @@
 
 A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent Oracle XStream CDC Connector**, streaming changes from **Oracle RAC on OCI DB System** to **Apache Kafka**. All infrastructure runs on **Oracle Cloud Infrastructure (OCI)**.
 
+**What this demonstrates:** Oracle RAC change capture with XStream Out, Kafka Connect, a multi-broker Kafka environment, and optional observability/load-testing components on OCI. This repository is intended as a reproducible technical lab and architecture reference.
+
+**New here?** Start with the [Portfolio & Project Guide](PORTFOLIO_GUIDE.md) for a task-oriented documentation map and end-to-end data flow. For deployment, continue with the quick start and detailed guides below.
+
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
 ---
@@ -9,6 +13,7 @@ A self-managed Oracle CDC (Change Data Capture) pipeline using the **Confluent O
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
+- [Portfolio & Project Guide](PORTFOLIO_GUIDE.md)
 - [Environment Overview](#environment-overview)
 - [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
